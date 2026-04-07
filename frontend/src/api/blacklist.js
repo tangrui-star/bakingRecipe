@@ -49,6 +49,13 @@ export const blacklistAPI = {
   },
 
   /**
+   * 获取统计数据（各风险等级数量）
+   */
+  getStatistics(shopId) {
+    return api.get('/api/blacklist/statistics', { params: { shop_id: shopId } })
+  },
+
+  /**
    * 获取黑名单列表
    */
   getList(params) {

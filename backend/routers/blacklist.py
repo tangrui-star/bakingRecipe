@@ -92,6 +92,30 @@ async def create_blacklist(
     return blacklist
 
 
+@router.get("/statistics", summary="获取黑名单统计数据")
+async def get_blacklist_statistics(
+    shop_id: str = Query(..., description="店铺ID"),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """一次返回各风险等级数量，供前端总览展示"""
+    from sqlalchemy import func as sqlfunc
+    rows = (
+        db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id))
+        .filter(Blacklist.shop_id == shop_id)
+        .group_by(Blacklist.risk_level)
+        .all()
+    )
+    counts = {r[0].value if hasattr(r[0], 'value') else r[0]: r[1] for r in rows}
+    total = sum(counts.values())
+    return {
+        "total":  total,
+        "high":   counts.get("HIGH", 0),
+        "medium": counts.get("MEDIUM", 0),
+        "low":    counts.get("LOW", 0),
+    }
+
+
 @router.get("", response_model=BlacklistListResponse, summary="查询黑名单列表")
 async def get_blacklist_list(
     shop_id: str = Query(..., description="店铺ID"),

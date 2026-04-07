@@ -6,6 +6,30 @@
         @clear="onClear" />
     </div>
 
+    <!-- 订单检查入口 -->
+    <div class="screening-entry">
+      <div class="entry-card" @click="goToScreening">
+        <div class="entry-icon">
+          <van-icon name="search" />
+        </div>
+        <div class="entry-content">
+          <div class="entry-title">订单检查</div>
+          <div class="entry-desc">上传订单Excel，快速检查黑名单</div>
+        </div>
+        <van-icon name="arrow" class="entry-arrow" />
+      </div>
+      <div class="entry-card" @click="goToHistory">
+        <div class="entry-icon history">
+          <van-icon name="clock-o" />
+        </div>
+        <div class="entry-content">
+          <div class="entry-title">检查历史</div>
+          <div class="entry-desc">查看历史检查记录</div>
+        </div>
+        <van-icon name="arrow" class="entry-arrow" />
+      </div>
+    </div>
+
     <!-- 信息总览卡片 -->
     <div class="overview-card">
       <div class="overview-header">
@@ -30,30 +54,6 @@
           <div class="stat-number">{{ statistics.low }}</div>
           <div class="stat-label">低风险</div>
         </div>
-      </div>
-    </div>
-
-    <!-- 订单检查入口 -->
-    <div class="screening-entry">
-      <div class="entry-card" @click="goToScreening">
-        <div class="entry-icon">
-          <van-icon name="search" />
-        </div>
-        <div class="entry-content">
-          <div class="entry-title">订单检查</div>
-          <div class="entry-desc">上传订单Excel，快速检查黑名单</div>
-        </div>
-        <van-icon name="arrow" class="entry-arrow" />
-      </div>
-      <div class="entry-card" @click="goToHistory">
-        <div class="entry-icon history">
-          <van-icon name="clock-o" />
-        </div>
-        <div class="entry-content">
-          <div class="entry-title">检查历史</div>
-          <div class="entry-desc">查看历史检查记录</div>
-        </div>
-        <van-icon name="arrow" class="entry-arrow" />
       </div>
     </div>
 
@@ -130,7 +130,7 @@ import { blacklistAPI } from '@/api/blacklist'
 
 const router = useRouter()
 
-// 数据
+// 列表数据
 const list = ref([])
 const loading = ref(false)
 const finished = ref(false)
@@ -142,47 +142,28 @@ const pageSize = 20
 const searchKeyword = ref('')
 const filterRiskLevel = ref('')
 
-// 统计数据
-const statistics = ref({
-  total: 0,
-  high: 0,
-  medium: 0,
-  low: 0
-})
+// 统计数据（独立，不依赖列表分页）
+const statistics = ref({ total: 0, high: 0, medium: 0, low: 0 })
 
-// 获取店铺ID（从localStorage或用户信息中获取）
 const getShopId = () => {
   const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
-  const shopId = userInfo.shop_id || '2c2f8124-150b-4351-956a-5d86d2f377aa' // 使用默认店铺ID
-  console.log('Shop ID:', shopId)
-  return shopId
+  return userInfo.shop_id || '2c2f8124-150b-4351-956a-5d86d2f377aa'
 }
 
-// 加载统计数据
+// ── 统计：一次请求，独立于列表 ──────────────────────────────
 const loadStatistics = async () => {
   try {
-    const shopId = getShopId()
-
-    // 获取总数
-    const totalRes = await blacklistAPI.getList({ shop_id: shopId, page: 1, page_size: 1 })
-    statistics.value.total = totalRes.total
-
-    // 获取各风险等级数量
-    const highRes = await blacklistAPI.getList({ shop_id: shopId, risk_level: 'HIGH', page: 1, page_size: 1 })
-    statistics.value.high = highRes.total
-
-    const mediumRes = await blacklistAPI.getList({ shop_id: shopId, risk_level: 'MEDIUM', page: 1, page_size: 1 })
-    statistics.value.medium = mediumRes.total
-
-    const lowRes = await blacklistAPI.getList({ shop_id: shopId, risk_level: 'LOW', page: 1, page_size: 1 })
-    statistics.value.low = lowRes.total
-  } catch (error) {
-    console.error('Load statistics error:', error)
+    const res = await blacklistAPI.getStatistics(getShopId())
+    statistics.value = res
+  } catch (e) {
+    console.error('统计加载失败', e)
   }
 }
 
-// 加载数据
+// ── 列表：分页加载 ──────────────────────────────────────────
 const loadData = async (isRefresh = false) => {
+  if (finished.value && !isRefresh) return
+
   if (isRefresh) {
     page.value = 1
     list.value = []
@@ -190,150 +171,75 @@ const loadData = async (isRefresh = false) => {
   }
 
   try {
-    const shopId = getShopId()
-    console.log('Loading blacklist data for shop:', shopId)
+    const params = { shop_id: getShopId(), page: page.value, page_size: pageSize }
+    if (searchKeyword.value) params.search = searchKeyword.value
+    if (filterRiskLevel.value) params.risk_level = filterRiskLevel.value
 
-    const params = {
-      shop_id: shopId,
-      page: page.value,
-      page_size: pageSize
-    }
-
-    if (searchKeyword.value) {
-      params.search = searchKeyword.value
-    }
-
-    if (filterRiskLevel.value) {
-      params.risk_level = filterRiskLevel.value
-    }
-
-    console.log('Request params:', params)
     const response = await blacklistAPI.getList(params)
-    console.log('Response:', response)
 
-    if (isRefresh) {
-      list.value = response.items
-    } else {
-      list.value.push(...response.items)
-    }
-
-    // 判断是否还有更多数据
-    if (list.value.length >= response.total) {
-      finished.value = true
-    }
-
+    list.value = isRefresh ? response.items : [...list.value, ...response.items]
     page.value++
+
+    if (list.value.length >= response.total) finished.value = true
   } catch (error) {
-    console.error('Load data error:', error)
-    const errorMsg = error.response?.data?.detail || error.message || '加载失败'
-    showToast('加载失败：' + errorMsg)
+    showToast('加载失败：' + (error.response?.data?.detail || error.message || '未知错误'))
   }
 }
 
-// 下拉刷新
+// van-list 唯一触发入口
+const onLoad = async () => {
+  if (refreshing.value) return
+  await loadData()
+  loading.value = false
+}
+
+// 下拉刷新（只刷新列表，统计不变）
 const onRefresh = async () => {
   refreshing.value = true
   await loadData(true)
   refreshing.value = false
 }
 
-// 上拉加载
-const onLoad = async () => {
-  await loadData()
-  loading.value = false
-}
+// 搜索 / 清除
+const onSearch = () => loadData(true)
+const onClear = () => { searchKeyword.value = ''; loadData(true) }
 
-// 搜索
-const onSearch = () => {
-  loadData(true)
-}
-
-// 清除搜索
-const onClear = () => {
-  searchKeyword.value = ''
-  loadData(true)
-}
-
-// 快速筛选
+// 快速筛选（切换分类，只重置列表）
 const onQuickFilter = (level) => {
+  if (filterRiskLevel.value === level) return  // 已选中，不重复请求
   filterRiskLevel.value = level
   loadData(true)
 }
 
-// 筛选变化
-const onFilterChange = () => {
-  loadData(true)
-}
+const onAdd = () => router.push('/blacklist/edit')
+const goToScreening = () => router.push('/screening')
+const goToHistory = () => router.push('/screening-history')
+const onEdit = (item) => router.push(`/blacklist/edit/${item.id}`)
 
-// 添加
-const onAdd = () => {
-  router.push('/blacklist/edit')
-}
-
-// 跳转到订单检查
-const goToScreening = () => {
-  router.push('/screening')
-}
-
-// 跳转到检查历史
-const goToHistory = () => {
-  router.push('/screening-history')
-}
-
-// 编辑
-const onEdit = (item) => {
-  router.push(`/blacklist/edit/${item.id}`)
-}
-
-// 删除
 const onDelete = async (item) => {
   try {
-    await showConfirmDialog({
-      title: '确认删除',
-      message: `确定要删除黑名单"${item.ktt_name || '未知'}"吗？`
-    })
-
+    await showConfirmDialog({ title: '确认删除', message: `确定要删除黑名单"${item.ktt_name || '未知'}"吗？` })
     await blacklistAPI.delete(item.id)
     showToast('删除成功')
-    loadData(true)
+    // 删除后同时刷新统计和列表
+    await Promise.all([loadStatistics(), loadData(true)])
   } catch (error) {
-    if (error !== 'cancel') {
-      showToast('删除失败：' + (error.response?.data?.detail || error.message))
-    }
+    if (error !== 'cancel') showToast('删除失败：' + (error.response?.data?.detail || error.message))
   }
 }
 
-// 获取风险等级类型
-const getRiskLevelType = (level) => {
-  const typeMap = {
-    HIGH: 'danger',
-    MEDIUM: 'warning',
-    LOW: 'success'
-  }
-  return typeMap[level] || 'default'
-}
+const getRiskLevelType = (level) => ({ HIGH: 'danger', MEDIUM: 'warning', LOW: 'success' }[level] || 'default')
+const getRiskLevelText = (level) => ({ HIGH: '高风险', MEDIUM: '中风险', LOW: '低风险' }[level] || level)
 
-// 获取风险等级文本
-const getRiskLevelText = (level) => {
-  const textMap = {
-    HIGH: '高风险',
-    MEDIUM: '中风险',
-    LOW: '低风险'
-  }
-  return textMap[level] || level
-}
-
-// 格式化日期
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 初始化
-onMounted(async () => {
-  await loadStatistics()
-  // 不需要手动调用loadData，van-list会自动触发
+// 初始化：只加载统计，列表由 van-list @load 自动触发
+onMounted(() => {
+  loadStatistics()
 })
 </script>
 
