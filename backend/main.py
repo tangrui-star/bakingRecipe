@@ -7,7 +7,7 @@ import os
 # 添加backend目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from routers import recipes, ingredients, categories, shops, auth, blacklist, screening
+from routers import recipes, ingredients, categories, shops, auth, blacklist, screening, order_process
 from config import settings
 
 app = FastAPI(
@@ -39,6 +39,7 @@ app.include_router(ingredients.router, prefix="/api/ingredients", tags=["原料"
 app.include_router(recipes.router, prefix="/api/recipes", tags=["配方"])
 app.include_router(blacklist.router, tags=["黑名单管理"])
 app.include_router(screening.router, tags=["订单检查"])
+app.include_router(order_process.router, tags=["订单数据处理"])
 
 @app.get("/")
 def root():

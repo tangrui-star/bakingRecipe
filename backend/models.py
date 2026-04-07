@@ -226,3 +226,19 @@ class OrderScreeningDetail(Base):
     # 关联
     record = relationship("OrderScreeningRecord", back_populates="details")
     blacklist = relationship("Blacklist")
+
+
+# ==================== 订单数据处理记录模型 ====================
+
+class OrderProcessRecord(Base):
+    __tablename__ = "order_process_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shop_id = Column(String(36), nullable=False, index=True)
+    file_name = Column(String(255), nullable=False)
+    group_nos = Column(JSON)           # 本次处理的跟团号列表
+    total_orders = Column(Integer, default=0)   # 过滤后订单数
+    product_types = Column(Integer, default=0)  # 商品种类数
+    summary = Column(JSON)             # 数量汇总摘要（前10条）
+    created_by = Column(String(36))
+    created_at = Column(DateTime, server_default=func.now(), index=True)

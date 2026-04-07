@@ -106,6 +106,12 @@ const routes = [
     name: 'ScreeningDetail',
     component: () => import('@/views/ScreeningDetail.vue'),
     meta: { requiresAuth: true, title: '检查详情' }
+  },
+  {
+    path: '/order-process',
+    name: 'OrderProcess',
+    component: () => import('@/views/OrderProcess.vue'),
+    meta: { requiresAuth: true, title: '订单数据处理' }
   }
 ]
 

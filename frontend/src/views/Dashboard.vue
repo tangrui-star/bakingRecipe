@@ -152,11 +152,10 @@ const tools = ref([
   },
   {
     icon: markRaw(Box),
-    label: '快递整理',
-    desc: '整理快递信息',
-    action: 'express',
-    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    disabled: true
+    label: '订单处理',
+    desc: '备料计算、备注提取、打印单号',
+    action: 'order-process',
+    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
   }
 ])
 
@@ -309,8 +308,8 @@ const handleToolClick = (action) => {
     case 'screening':
       router.push('/screening')
       break
-    case 'express':
-      ElMessage.info('快递整理功能即将上线')
+    case 'order-process':
+      router.push('/order-process')
       break
   }
 }
