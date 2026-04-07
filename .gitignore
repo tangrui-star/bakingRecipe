@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+logs/
+*.log
+
+# 运行时数据
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 临时文件
+.tmp/
+.temp/
+*.tmp
+*.temp
+~$*
+*.swp
+*.swo
+*~
+
+# IDE文件
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 构建输出
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+htmlcov/
+.coverage
+.pytest_cache/
+
+# 上传文件
+uploads/
+backend/uploads/
+
+# Excel数据文件（包含敏感信息）
+*.xlsx
+*.xls
+!template*.xlsx
+!template*.xls
+
+# 备份文件
+*.bak
+*.backup
+
+# 临时文档（保留核心文档）
+*_TEMP.md
+*_DEBUG.md
+*_FIX.md
+*_SUCCESS.md
+*_SUMMARY.md
+*_GUIDE_TEMP.md
