@@ -112,6 +112,12 @@ const routes = [
     name: 'OrderProcess',
     component: () => import('@/views/OrderProcess.vue'),
     meta: { requiresAuth: true, title: '订单数据处理' }
+  },
+  {
+    path: '/logistics-process',
+    name: 'LogisticsProcess',
+    component: () => import('@/views/LogisticsProcess.vue'),
+    meta: { requiresAuth: true, title: '中通快递表生成' }
   }
 ]
 

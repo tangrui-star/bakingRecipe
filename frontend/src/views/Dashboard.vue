@@ -156,6 +156,13 @@ const tools = ref([
     desc: '备料计算、备注提取、打印单号',
     action: 'order-process',
     gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+  },
+  {
+    icon: markRaw(TrendCharts),
+    label: '中通快递',
+    desc: '上传物流Excel生成快递表',
+    action: 'logistics-process',
+    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
   }
 ])
 
@@ -310,6 +317,9 @@ const handleToolClick = (action) => {
       break
     case 'order-process':
       router.push('/order-process')
+      break
+    case 'logistics-process':
+      router.push('/logistics-process')
       break
   }
 }

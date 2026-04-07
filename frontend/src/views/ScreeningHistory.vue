@@ -20,45 +20,49 @@
             v-for="item in list"
             :key="item.id"
             class="history-card"
-            @click="viewDetail(item)"
           >
-            <div class="card-header">
+            <!-- 卡片头部：点击展开/收起 -->
+            <div class="card-header" @click="toggleExpand(item.id)">
               <van-icon name="description" class="file-icon" />
               <div class="file-info">
                 <div class="file-name">{{ item.file_name }}</div>
                 <div class="file-time">{{ formatTime(item.screening_time) }}</div>
               </div>
+              <van-icon
+                :name="expandedIds.has(item.id) ? 'arrow-up' : 'arrow-down'"
+                class="expand-icon"
+              />
             </div>
 
-            <div class="card-stats">
-              <div class="stat-item">
-                <span class="stat-label">总订单</span>
-                <span class="stat-value">{{ item.total_orders }}</span>
+            <!-- 展开内容 -->
+            <div v-if="expandedIds.has(item.id)">
+              <div class="card-stats">
+                <div class="stat-item">
+                  <span class="stat-label">总订单</span>
+                  <span class="stat-value">{{ item.total_orders }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item danger">
+                  <span class="stat-label">命中</span>
+                  <span class="stat-value">{{ item.matched_count }}</span>
+                </div>
               </div>
-              <div class="stat-divider"></div>
-              <div class="stat-item danger">
-                <span class="stat-label">命中</span>
-                <span class="stat-value">{{ item.matched_count }}</span>
+
+              <div class="card-footer">
+                <van-button size="small" type="primary" plain @click.stop="viewDetail(item)">
+                  查看详情
+                </van-button>
+                <van-button size="small" type="danger" plain @click.stop="deleteRecord(item)">
+                  删除
+                </van-button>
               </div>
             </div>
 
-            <div class="card-footer">
-              <van-button
-                size="small"
-                type="primary"
-                plain
-                @click.stop="viewDetail(item)"
-              >
-                查看详情
-              </van-button>
-              <van-button
-                size="small"
-                type="danger"
-                plain
-                @click.stop="deleteRecord(item)"
-              >
-                删除
-              </van-button>
+            <!-- 收起时显示简要信息 -->
+            <div v-else class="card-summary">
+              <span :class="item.matched_count > 0 ? 'hit' : 'safe'">
+                命中 {{ item.matched_count }} / {{ item.total_orders }} 条
+              </span>
             </div>
           </div>
 
@@ -86,6 +90,13 @@ const finished = ref(false)
 const refreshing = ref(false)
 const page = ref(1)
 const pageSize = 20
+const expandedIds = ref(new Set())
+
+const toggleExpand = (id) => {
+  const s = new Set(expandedIds.value)
+  s.has(id) ? s.delete(id) : s.add(id)
+  expandedIds.value = s
+}
 
 // 获取店铺ID
 const getShopId = () => {
@@ -300,6 +311,20 @@ onMounted(() => {
 .card-footer .van-button {
   flex: 1;
 }
+
+.expand-icon {
+  font-size: 16px;
+  color: #c8c9cc;
+  flex-shrink: 0;
+}
+
+.card-summary {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.card-summary .hit  { color: #ee0a24; font-weight: 600; }
+.card-summary .safe { color: #07c160; }
 
 /* 导航栏样式 */
 :deep(.van-nav-bar) {

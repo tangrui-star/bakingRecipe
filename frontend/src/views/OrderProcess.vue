@@ -42,8 +42,13 @@
 
       <!-- 历史记录 -->
       <div class="section-card" v-if="historyList.length > 0">
-        <div class="section-title">历史记录</div>
-        <div v-for="item in historyList" :key="item.id" class="history-item">
+        <div class="row-between">
+          <div class="section-title">历史记录</div>
+          <van-button size="mini" plain @click="historyExpanded = !historyExpanded">
+            {{ historyExpanded ? '收起' : `展开全部(${historyTotal})` }}
+          </van-button>
+        </div>
+        <div v-for="item in displayedHistory" :key="item.id" class="history-item">
           <div class="row-between">
             <span class="history-file">{{ item.file_name }}</span>
             <span class="history-time">{{ formatTime(item.created_at) }}</span>
@@ -51,6 +56,9 @@
           <div class="history-sub">
             跟团号 {{ (item.group_nos || []).join(' ') }} · {{ item.total_orders }} 条 · {{ item.product_types }} 种商品
           </div>
+        </div>
+        <div v-if="!historyExpanded && historyTotal > 3" class="history-more" @click="loadAllHistory">
+          还有 {{ historyTotal - 3 }} 条，点击展开
         </div>
       </div>
 
@@ -146,6 +154,27 @@
               </div>
             </div>
           </van-tab>
+
+          <!-- 中通快递 -->
+          <van-tab :title="`快递(${logisticsData.length})`">
+            <div class="card-list">
+              <van-empty v-if="logisticsData.length === 0" description="处理数据后自动生成" image="search" />
+              <template v-else>
+                <div class="logistics-export-bar">
+                  <span class="logistics-count">共 {{ logisticsData.length }} 条</span>
+                  <van-button size="small" type="success" icon="down" @click="exportLogistics">导出快递表</van-button>
+                </div>
+                <div v-for="(row, i) in logisticsData" :key="i" class="logistics-card">
+                  <div class="row-between">
+                    <span class="logistics-name">{{ row['收件人姓名'] }}</span>
+                    <span class="logistics-phone">{{ row['收件人手机'] }}</span>
+                  </div>
+                  <div class="logistics-addr">{{ row['收件人地址'] }}</div>
+                  <div v-if="row['_groupNo']" class="logistics-gno">跟团号 {{ row['_groupNo'] }}</div>
+                </div>
+              </template>
+            </div>
+          </van-tab>
         </van-tabs>
       </div>
     </div>
@@ -185,7 +214,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import * as XLSX from 'xlsx'
@@ -212,6 +241,14 @@ const leaderRemarkData = ref([])
 const filteredData = ref([])
 const printData = ref([])
 const historyList = ref([])
+const historyTotal = ref(0)
+const historyExpanded = ref(false)
+
+// 默认显示3条，展开后显示全部
+const displayedHistory = computed(() => historyExpanded.value ? historyList.value : historyList.value.slice(0, 3))
+
+// 物流相关
+const logisticsData = ref([])
 
 const pwdDialogVisible = ref(false)
 const filePassword = ref('')
@@ -331,6 +368,82 @@ const doProcess = (rows) => {
         formulaInfor: [r['跟团号'], `收货信息：${r['收货人']} ${r['联系电话']}`, ...lines].join('\n')
       }
     })
+
+  // 自动生成中通快递表
+  logisticsData.value = printData.value.map(p => parseLogisticsText(p.formulaInfor))
+}
+
+// ── 物流解析 ─────────────────────────────────────────────────
+/**
+ * 解析单条物流文本
+ * 格式：跟团号\n收货信息：姓名 手机号\n地址行1\n地址行2...
+ */
+const parseLogisticsText = (text) => {
+  const result = {
+    '订单号': '', '代收金额': '', '收件人姓名': '', '收件人手机': '',
+    '收件人电话': '', '收件人地址': '', '收件人单位': '',
+    '品名': '', '数量': '', '买家备注': '', '卖家备注': '', '_groupNo': ''
+  }
+  if (!text || text === 'nan') return result
+
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean)
+  if (!lines.length) return result
+
+  // 第一行是跟团号
+  result['_groupNo'] = lines[0]
+
+  // 找"收货信息"行
+  const receiverIdx = lines.findIndex(l => l.includes('收货信息') || l.includes('收件信息'))
+  if (receiverIdx !== -1) {
+    const receiverLine = lines[receiverIdx]
+    // 匹配：收货信息：姓名 手机号
+    const m = receiverLine.match(/收货信息[：:]\s*(.+?)\s+(\d{10,11})/)
+    if (m) {
+      result['收件人姓名'] = m[1].trim()
+      result['收件人手机'] = m[2]
+      result['收件人电话'] = m[2]
+    }
+    // 地址：收货信息行之后的所有行拼接
+    const addrLines = lines.slice(receiverIdx + 1).filter(l =>
+      !l.match(/品名|数量|备注|代收金额/)
+    )
+    result['收件人地址'] = addrLines.join('').replace(/\s+/g, '')
+  } else if (lines.length >= 2) {
+    // 没有"收货信息"标记，第二行尝试解析姓名+手机
+    const m = lines[1].match(/([^\d]+?)\s+(\d{10,11})/)
+    if (m) {
+      result['收件人姓名'] = m[1].trim()
+      result['收件人手机'] = m[2]
+      result['收件人电话'] = m[2]
+    }
+    result['收件人地址'] = lines.slice(2).join('').replace(/\s+/g, '')
+  }
+
+  return result
+}
+
+// 从当次 printData 直接生成（已在 doProcess 中自动调用，此函数保留供外部调用）
+const genLogisticsFromPrint = () => {
+  logisticsData.value = printData.value.map(p => parseLogisticsText(p.formulaInfor))
+}
+
+// 导出中通快递表
+const exportLogistics = () => {
+  const now = new Date()
+  const p = `${now.getMonth() + 1}月${now.getDate()}日`
+  const exportCols = ['订单号', '代收金额', '收件人姓名', '收件人手机', '收件人电话',
+    '收件人地址', '收件人单位', '品名', '数量', '买家备注', '卖家备注']
+  const data = logisticsData.value.map(r => {
+    const row = {}
+    exportCols.forEach(k => { row[k] = r[k] || '' })
+    return row
+  })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), '中通快递')
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const url = URL.createObjectURL(new Blob([buf], { type: 'application/octet-stream' }))
+  const a = document.createElement('a'); a.href = url; a.download = `${p}中通快递.xlsx`; a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ── 导出 ─────────────────────────────────────────────────────
@@ -350,6 +463,15 @@ const exportExcel = () => {
     return row
   }), `${p}配方计算`)
   app(printData.value.map(r => ({ 跟团号: r.formulaInfor })), `${p}批量打印单号`)
+
+  // 中通快递表
+  const logisticsCols = ['订单号', '代收金额', '收件人姓名', '收件人手机', '收件人电话',
+    '收件人地址', '收件人单位', '品名', '数量', '买家备注', '卖家备注']
+  app(logisticsData.value.map(r => {
+    const row = {}
+    logisticsCols.forEach(k => { row[k] = r[k] || '' })
+    return row
+  }), `${p}中通快递`)
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
   const url = URL.createObjectURL(new Blob([buf], { type: 'application/octet-stream' }))
@@ -381,17 +503,39 @@ const loadHistory = async () => {
   const shopId = getShopId()
   if (!shopId) return
   try {
-    const res = await fetch(`/api/order-process/history?shop_id=${shopId}&page=1&page_size=5`, {
+    const res = await fetch(`/api/order-process/history?shop_id=${shopId}&page=1&page_size=50`, {
       headers: { 'Authorization': `Bearer ${getToken()}` }
     })
-    if (res.ok) historyList.value = (await res.json()).items || []
+    if (res.ok) {
+      const data = await res.json()
+      historyList.value = data.items || []
+      historyTotal.value = data.total || 0
+    }
   } catch { /* 静默 */ }
+}
+
+const loadAllHistory = async () => {
+  historyExpanded.value = true
+  // 如果已加载的不够，重新拉取更多
+  if (historyList.value.length < historyTotal.value) {
+    const shopId = getShopId()
+    try {
+      const res = await fetch(`/api/order-process/history?shop_id=${shopId}&page=1&page_size=100`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        historyList.value = data.items || []
+      }
+    } catch { /* 静默 */ }
+  }
 }
 
 const handleReset = () => {
   dynamicTags.value = []; fileName.value = ''; fileData.value = null
   hasResult.value = false; summaryData.value = []; recipeData.value = []
   memberRemarkData.value = []; leaderRemarkData.value = []; filteredData.value = []; printData.value = []
+  logisticsData.value = []
 }
 
 const formatTime = (t) => {
@@ -485,6 +629,14 @@ onMounted(() => loadHistory())
 .history-file { font-size: 13px; font-weight: 500; color: #323233; }
 .history-time { font-size: 12px; color: #969799; }
 .history-sub  { font-size: 12px; color: #969799; margin-top: 3px; }
+
+.history-more {
+  text-align: center;
+  font-size: 13px;
+  color: #1989fa;
+  padding: 8px 0 2px;
+  cursor: pointer;
+}
 
 /* 结果区 */
 .result-section { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
@@ -620,6 +772,8 @@ onMounted(() => loadHistory())
 .receiver-info { font-size: 12px; color: #969799; }
 
 /* 打印单号 */
+.action-bar { margin-bottom: 8px; }
+
 .print-card {
   background: #f7f8fa;
   border-radius: 8px;
@@ -635,6 +789,38 @@ onMounted(() => loadHistory())
   font-family: 'Courier New', monospace;
   line-height: 1.8;
 }
+
+/* 中通快递 */
+.logistics-upload { margin-bottom: 8px; }
+
+.logistics-export-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 8px;
+}
+
+.logistics-count { font-size: 13px; color: #646566; }
+
+.logistics-card {
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 3px solid #07c160;
+}
+
+.logistics-name { font-size: 15px; font-weight: 600; color: #323233; }
+.logistics-phone { font-size: 14px; color: #1989fa; }
+
+.logistics-addr {
+  font-size: 13px;
+  color: #646566;
+  margin-top: 6px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.logistics-gno { font-size: 11px; color: #c8c9cc; margin-top: 4px; }
 
 :deep(.van-nav-bar) { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 :deep(.van-nav-bar__title) { color: #fff; font-weight: 600; }

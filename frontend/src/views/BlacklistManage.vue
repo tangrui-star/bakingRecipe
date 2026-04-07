@@ -60,60 +60,59 @@
     <!-- 列表容器 -->
     <div class="list-container">
       <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-        <van-list v-model:loading="loading" :finished="finished" :finished-text="list.length > 0 ? '没有更多了' : ''"
-          @load="onLoad">
-          <van-swipe-cell v-for="item in list" :key="item.id" class="list-item">
-            <div class="blacklist-card" @click="onEdit(item)">
-              <!-- 卡片头部 -->
-              <div class="card-header">
-                <div class="name-section">
-                  <span class="name">{{ item.ktt_name || '未知' }}</span>
-                  <van-tag :type="getRiskLevelType(item.risk_level)" size="medium" round>
-                    {{ getRiskLevelText(item.risk_level) }}
-                  </van-tag>
-                </div>
-                <van-icon name="arrow" class="arrow-icon" />
+        <van-swipe-cell v-for="item in list" :key="item.id" class="list-item">
+          <div class="blacklist-card" @click="onEdit(item)">
+            <div class="card-header">
+              <div class="name-section">
+                <span class="name">{{ item.ktt_name || '未知' }}</span>
+                <van-tag :type="getRiskLevelType(item.risk_level)" size="medium" round>
+                  {{ getRiskLevelText(item.risk_level) }}
+                </van-tag>
               </div>
-
-              <!-- 联系信息 -->
-              <div class="contact-info" v-if="item.phone_numbers && item.phone_numbers.length > 0">
-                <van-icon name="phone-o" class="info-icon" />
-                <span class="phone-text">{{ item.phone_numbers.join(', ') }}</span>
+              <van-icon name="arrow" class="arrow-icon" />
+            </div>
+            <div class="contact-info" v-if="item.phone_numbers && item.phone_numbers.length > 0">
+              <van-icon name="phone-o" class="info-icon" />
+              <span class="phone-text">{{ item.phone_numbers.join(', ') }}</span>
+            </div>
+            <div class="contact-info" v-if="item.wechat_name">
+              <van-icon name="chat-o" class="info-icon" />
+              <span class="wechat-text">{{ item.wechat_name }}</span>
+            </div>
+            <div class="reason-section" v-if="item.blacklist_reason">
+              <div class="reason-label">原因：</div>
+              <div class="reason-text">{{ item.blacklist_reason }}</div>
+            </div>
+            <div class="card-footer">
+              <div class="footer-item">
+                <van-icon name="clock-o" />
+                <span>{{ formatDate(item.created_at) }}</span>
               </div>
-
-              <!-- 微信信息 -->
-              <div class="contact-info" v-if="item.wechat_name">
-                <van-icon name="chat-o" class="info-icon" />
-                <span class="wechat-text">{{ item.wechat_name }}</span>
-              </div>
-
-              <!-- 原因 -->
-              <div class="reason-section" v-if="item.blacklist_reason">
-                <div class="reason-label">原因：</div>
-                <div class="reason-text">{{ item.blacklist_reason }}</div>
-              </div>
-
-              <!-- 卡片底部 -->
-              <div class="card-footer">
-                <div class="footer-item">
-                  <van-icon name="clock-o" />
-                  <span>{{ formatDate(item.created_at) }}</span>
-                </div>
-                <div class="footer-item" v-if="item.new_id">
-                  <van-icon name="label-o" />
-                  <span>{{ item.new_id }}</span>
-                </div>
+              <div class="footer-item" v-if="item.new_id">
+                <van-icon name="label-o" />
+                <span>{{ item.new_id }}</span>
               </div>
             </div>
+          </div>
+          <template #right>
+            <van-button square type="danger" text="删除" class="delete-button" @click="onDelete(item)" />
+          </template>
+        </van-swipe-cell>
 
-            <template #right>
-              <van-button square type="danger" text="删除" class="delete-button" @click="onDelete(item)" />
-            </template>
-          </van-swipe-cell>
+        <van-empty v-if="!loading && list.length === 0" description="暂无黑名单记录" image="search" />
 
-          <!-- 空状态 -->
-          <van-empty v-if="!loading && list.length === 0" description="暂无黑名单记录" image="search" />
-        </van-list>
+        <!-- 分页控制 -->
+        <div v-if="totalPages > 1" class="pagination-bar">
+          <van-button
+            size="small" plain :disabled="page === 1 || loading"
+            icon="arrow-left" @click="goPage(page - 1)"
+          />
+          <span class="page-info">{{ page }} / {{ totalPages }}</span>
+          <van-button
+            size="small" plain :disabled="page === totalPages || loading"
+            icon="arrow" @click="goPage(page + 1)"
+          />
+        </div>
       </van-pull-refresh>
     </div>
 
@@ -123,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { blacklistAPI } from '@/api/blacklist'
@@ -133,10 +132,11 @@ const router = useRouter()
 // 列表数据
 const list = ref([])
 const loading = ref(false)
-const finished = ref(false)
 const refreshing = ref(false)
 const page = ref(1)
 const pageSize = 20
+const totalCount = ref(0)
+const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 
 // 搜索和筛选
 const searchKeyword = ref('')
@@ -160,55 +160,50 @@ const loadStatistics = async () => {
   }
 }
 
-// ── 列表：分页加载 ──────────────────────────────────────────
-const loadData = async (isRefresh = false) => {
-  if (finished.value && !isRefresh) return
-
-  if (isRefresh) {
-    page.value = 1
-    list.value = []
-    finished.value = false
-  }
-
+// ── 列表：分页按钮加载 ─────────────────────────────────────
+const loadData = async (targetPage = page.value) => {
+  if (loading.value) return
+  loading.value = true
   try {
-    const params = { shop_id: getShopId(), page: page.value, page_size: pageSize }
+    const params = { shop_id: getShopId(), page: targetPage, page_size: pageSize }
     if (searchKeyword.value) params.search = searchKeyword.value
     if (filterRiskLevel.value) params.risk_level = filterRiskLevel.value
 
     const response = await blacklistAPI.getList(params)
-
-    list.value = isRefresh ? response.items : [...list.value, ...response.items]
-    page.value++
-
-    if (list.value.length >= response.total) finished.value = true
+    list.value = response.items
+    totalCount.value = response.total
+    page.value = targetPage
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
     showToast('加载失败：' + (error.response?.data?.detail || error.message || '未知错误'))
+  } finally {
+    loading.value = false
   }
 }
 
-// van-list 唯一触发入口
-const onLoad = async () => {
-  if (refreshing.value) return
-  await loadData()
-  loading.value = false
+const goPage = (p) => {
+  if (p < 1 || p > totalPages.value || loading.value) return
+  loadData(p)
 }
 
-// 下拉刷新（只刷新列表，统计不变）
+const onLoad = () => {}  // van-list已移除，保留空函数
+
+// 下拉刷新（刷新当前页）
 const onRefresh = async () => {
   refreshing.value = true
-  await loadData(true)
+  await loadData(page.value)
   refreshing.value = false
 }
 
 // 搜索 / 清除
-const onSearch = () => loadData(true)
-const onClear = () => { searchKeyword.value = ''; loadData(true) }
+const onSearch = () => loadData(1)
+const onClear = () => { searchKeyword.value = ''; loadData(1) }
 
-// 快速筛选（切换分类，只重置列表）
+// 快速筛选
 const onQuickFilter = (level) => {
-  if (filterRiskLevel.value === level) return  // 已选中，不重复请求
+  if (filterRiskLevel.value === level) return
   filterRiskLevel.value = level
-  loadData(true)
+  loadData(1)
 }
 
 const onAdd = () => router.push('/blacklist/edit')
@@ -221,8 +216,7 @@ const onDelete = async (item) => {
     await showConfirmDialog({ title: '确认删除', message: `确定要删除黑名单"${item.ktt_name || '未知'}"吗？` })
     await blacklistAPI.delete(item.id)
     showToast('删除成功')
-    // 删除后同时刷新统计和列表
-    await Promise.all([loadStatistics(), loadData(true)])
+    await Promise.all([loadStatistics(), loadData(page.value)])
   } catch (error) {
     if (error !== 'cancel') showToast('删除失败：' + (error.response?.data?.detail || error.message))
   }
@@ -237,9 +231,10 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 初始化：只加载统计，列表由 van-list @load 自动触发
+// 初始化：只加载统计，列表由 loadData 手动触发
 onMounted(() => {
   loadStatistics()
+  loadData(1)
 })
 </script>
 
@@ -572,5 +567,21 @@ onMounted(() => {
 :deep(.van-tag--success) {
   background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
   border: none;
+}
+
+/* 分页控制 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0 8px;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #646566;
+  min-width: 60px;
+  text-align: center;
 }
 </style>
