@@ -197,39 +197,56 @@ def register(user_data: UserRegister, request: Request, db: Session = Depends(ge
 @router.post("/login", response_model=TokenResponse)
 def login(login_data: UserLogin, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
+    import logging
+    logger = logging.getLogger("auth.login")
+
+    client_ip = request.client.host if request.client else "unknown"
+    logger.warning(f"[LOGIN] ===== 登录请求开始 =====")
+    logger.warning(f"[LOGIN] 来源IP: {client_ip}")
+    logger.warning(f"[LOGIN] 用户名/邮箱: {login_data.username_or_email}")
+    logger.warning(f"[LOGIN] captcha_id: {login_data.captcha_id}")
+    logger.warning(f"[LOGIN] captcha_code: {login_data.captcha_code}")
+    logger.warning(f"[LOGIN] password长度: {len(login_data.password) if login_data.password else 0}")
+
     # 1. 验证图片验证码（验证成功后删除）
     success, message = captcha_manager.verify_captcha(login_data.captcha_id, login_data.captcha_code, delete_after_verify=True)
+    logger.warning(f"[LOGIN] 步骤1 验证码校验: success={success}, message={message}")
     if not success:
         raise HTTPException(status_code=400, detail=f"验证码错误: {message}")
-    
+
     # 2. 查找用户（支持用户名或邮箱登录）
     user = db.query(User).filter(
         (User.username == login_data.username_or_email) |
         (User.email == login_data.username_or_email)
     ).first()
-    
+    logger.warning(f"[LOGIN] 步骤2 查找用户: {'找到' if user else '未找到'}")
+
     # 记录登录日志
     def log_login(user_id: Optional[str], status: str, reason: Optional[str] = None):
         log = LoginLog(
             user_id=user_id,
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip,
             user_agent=request.headers.get('user-agent', ''),
             login_status=status,
             fail_reason=reason
         )
         db.add(log)
         db.commit()
-    
+
     if not user:
+        logger.warning(f"[LOGIN] 失败原因: 用户不存在 - {login_data.username_or_email}")
         log_login(None, 'failed', '用户不存在')
         raise HTTPException(status_code=401, detail="用户名或密码错误")
-    
+
     # 3. 验证密码
-    if not verify_password(login_data.password, user.password_hash):
+    pwd_ok = verify_password(login_data.password, user.password_hash)
+    logger.warning(f"[LOGIN] 步骤3 密码校验: {'通过' if pwd_ok else '失败'}")
+    if not pwd_ok:
         log_login(user.id, 'failed', '密码错误')
         raise HTTPException(status_code=401, detail="用户名或密码错误")
-    
+
     # 4. 检查用户状态
+    logger.warning(f"[LOGIN] 步骤4 用户状态: is_active={user.is_active}")
     if not user.is_active:
         log_login(user.id, 'failed', '用户已被禁用')
         raise HTTPException(status_code=403, detail="用户已被禁用")

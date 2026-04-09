@@ -25,36 +25,41 @@ api.interceptors.response.use(
   response => response.data,
   async error => {
     const originalRequest = error.config
-    
-    // Token过期，尝试刷新
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    // auth接口本身的401（登录失败、验证码错误等）直接透传，不触发刷新逻辑
+    const isAuthRequest = originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/refresh-token')
+
+    // Token过期，尝试刷新（排除auth接口）
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true
-      
+
       const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
           const response = await axios.post('/api/auth/refresh-token', {
             refresh_token: refreshToken
           })
-          
+
           localStorage.setItem('access_token', response.data.access_token)
           originalRequest.headers.Authorization = `Bearer ${response.data.access_token}`
-          
+
           return api(originalRequest)
         } catch (refreshError) {
-          // 刷新失败，清除token并跳转登录
+          // 刷新失败，清除token并用router跳转（避免页面整体重载闪动）
           localStorage.clear()
-          window.location.href = '/login'
           ElMessage.error('登录已过期，请重新登录')
+          // 延迟跳转，让ElMessage显示出来
+          setTimeout(() => { window.location.href = '/login' }, 1500)
           return Promise.reject(refreshError)
         }
       } else {
-        // 没有刷新令牌，跳转登录
         localStorage.clear()
-        window.location.href = '/login'
+        setTimeout(() => { window.location.href = '/login' }, 100)
       }
     }
-    
+
     return Promise.reject(error)
   }
 )

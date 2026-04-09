@@ -9,11 +9,11 @@ class Settings(BaseSettings):
     )
     
     # 数据库配置
-    db_host: str = "localhost"
+    db_host: str = "47.109.97.153"
     db_port: int = 3306
     db_user: str = "root"
-    db_password: str = ""
-    db_name: str = "baking_recipe"
+    db_password: str = "Root@2025!"
+    db_name: str = "baking_recipe_system"
     
     # API配置
     api_host: str = "0.0.0.0"

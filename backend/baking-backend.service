@@ -1,0 +1,22 @@
+[Unit]
+Description=Baking Recipe Backend
+After=network.target
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/opt/baking-app/backend
+Environment="PATH=/opt/baking-app/backend/venv/bin"
+ExecStart=/opt/baking-app/backend/venv/bin/gunicorn \
+    main:app \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --workers 2 \
+    --bind 127.0.0.1:8000 \
+    --timeout 120 \
+    --access-logfile /var/log/baking-backend/access.log \
+    --error-logfile /var/log/baking-backend/error.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
