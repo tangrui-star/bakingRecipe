@@ -79,23 +79,30 @@ def send_email_code(request: EmailCodeRequest, db: Session = Depends(get_db)):
     success, message = captcha_manager.verify_captcha(request.captcha_id, request.captcha_code, delete_after_verify=False)
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    
+
     # 验证邮箱格式
     if not validate_email(request.email):
         raise HTTPException(status_code=400, detail="邮箱格式不正确")
-    
+
     # 检查邮箱是否已注册
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="该邮箱已被注册")
-    
-    # 生成并发送验证码（临时打印到控制台）
+
+    # 生成验证码
+    from captcha_utils import email_code_manager
+    from email_utils import send_verification_email
     code = email_code_manager.generate_code(request.email)
-    
+
+    # 发送邮件
+    ok, err = send_verification_email(request.email, code, expire_minutes=5)
+    if not ok:
+        raise HTTPException(status_code=500, detail=err)
+
     return {
-        "message": "验证码已发送到您的邮箱（临时：请查看后端控制台日志）",
+        "message": "验证码已发送到您的邮箱，请注意查收",
         "email": request.email,
-        "expires_in": 300  # 5分钟
+        "expires_in": 300
     }
 
 @router.post("/register", response_model=TokenResponse)

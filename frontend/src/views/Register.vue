@@ -135,7 +135,7 @@
             
             <div class="tip-box">
               <el-icon><InfoFilled /></el-icon>
-              <span>验证码已发送到您的邮箱，请查看后端控制台获取（开发阶段）。图片验证码和邮箱验证码有效期为5分钟，请尽快完成注册。</span>
+              <span>验证码已发送到您的邮箱，请注意查收。图片验证码和邮箱验证码有效期为5分钟，请尽快完成注册。</span>
             </div>
           </div>
           
@@ -323,7 +323,7 @@ const sendEmailCode = async () => {
       captcha_code: registerForm.value.captcha
     })
     
-    ElMessage.success('验证码已发送，请查看后端控制台')
+    ElMessage.success('验证码已发送，请查收邮件')
     
     // 开始倒计时
     countdown.value = 60
@@ -605,6 +605,7 @@ onMounted(() => {
 .custom-input :deep(.el-input__inner) {
   color: var(--text-primary);
   font-size: var(--input-font-size);
+  font-size: max(16px, var(--input-font-size));
 }
 
 .captcha-wrapper,

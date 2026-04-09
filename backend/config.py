@@ -39,4 +39,11 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_upload_size: int = 5242880  # 5MB
 
+    # 邮件配置
+    smtp_host: str = "smtp.qq.com"       # QQ邮箱；163用 smtp.163.com
+    smtp_port: int = 465                  # SSL端口；587用TLS
+    smtp_user: str = ""                   # 你的邮箱地址
+    smtp_password: str = ""              # 授权码（不是登录密码）
+    smtp_from_name: str = "烘焙配方系统"
+
 settings = Settings()
