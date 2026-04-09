@@ -185,7 +185,15 @@ const handleLogin = async () => {
       ElMessage.success('登录成功！')
       router.push('/dashboard')
     } catch (error) {
-      ElMessage.error(error.response?.data?.detail || '登录失败')
+      // 优先显示后端返回的具体错误信息
+      const detail = error.response?.data?.detail
+      if (detail) {
+        ElMessage.error(detail)
+      } else if (error.message) {
+        ElMessage.error(error.message)
+      } else {
+        ElMessage.error('登录失败，请稍后重试')
+      }
       refreshCaptcha()
       loginForm.value.captcha = ''
     } finally {
@@ -440,6 +448,8 @@ onMounted(() => {
 .custom-input :deep(.el-input__inner) {
   color: var(--text-primary);
   font-size: var(--input-font-size);
+  /* 防止iOS Safari在字体小于16px时自动缩放页面 */
+  font-size: max(16px, var(--input-font-size));
 }
 
 .captcha-wrapper {

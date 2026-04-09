@@ -26,12 +26,12 @@ api.interceptors.response.use(
   async error => {
     const originalRequest = error.config
 
-    // auth接口本身的401（登录失败、验证码错误等）直接透传，不触发刷新逻辑
+    // auth接口本身的401/400（登录失败、验证码错误等）直接透传，不触发刷新逻辑
     const isAuthRequest = originalRequest.url?.includes('/auth/login') ||
       originalRequest.url?.includes('/auth/register') ||
       originalRequest.url?.includes('/auth/refresh-token')
 
-    // Token过期，尝试刷新（排除auth接口）
+    // Token过期，尝试刷新（排除auth接口，排除400错误）
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true
 
