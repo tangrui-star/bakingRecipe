@@ -58,6 +58,7 @@ Thumbs.db
 
 # 构建输出
 dist/
+bakingRecipe/
 build/
 *.tgz
 *.tar.gz

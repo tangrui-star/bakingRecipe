@@ -119,7 +119,6 @@
             size="large"
             class="submit-btn"
             :loading="loading"
-            :disabled="!agreeTerms"
             @click="handleRegister"
           >
             {{ loading ? '注册中...' : '完成注册' }}
@@ -262,7 +261,16 @@ const nextStep = async () => {
       await registerFormRef.value.validateField(['username', 'email', 'password', 'confirmPassword'])
       currentStep.value++
     } catch (error) {
-      // 验证不通过，停留在当前步骤
+      // 收集未通过的字段给出汇总提示
+      const missing = []
+      if (!registerForm.value.username) missing.push('用户名')
+      if (!registerForm.value.email) missing.push('邮箱')
+      if (!registerForm.value.password) missing.push('密码')
+      if (!registerForm.value.confirmPassword) missing.push('确认密码')
+      else if (registerForm.value.confirmPassword !== registerForm.value.password) missing.push('两次密码不一致')
+      if (missing.length) {
+        ElMessage.warning(`请完善以下信息：${missing.join('、')}`)
+      }
     }
   }
 }
@@ -273,15 +281,21 @@ const prevStep = () => {
 }
 
 const handleRegister = async () => {
-  if (!agreeTerms.value) {
-    ElMessage.warning('请先同意用户协议和隐私政策')
-    return
-  }
-
-  // 验证验证码字段
+  // 先触发验证码字段校验，显示具体错误
   try {
     await registerFormRef.value.validateField(['captcha', 'emailCode'])
   } catch (error) {
+    const missing = []
+    if (!registerForm.value.captcha || registerForm.value.captcha.length !== 4) missing.push('图片验证码')
+    if (!registerForm.value.emailCode || registerForm.value.emailCode.length !== 6) missing.push('邮箱验证码')
+    if (missing.length) {
+      ElMessage.warning(`请完善以下信息：${missing.join('、')}`)
+    }
+    return
+  }
+
+  if (!agreeTerms.value) {
+    ElMessage.warning('请勾选同意用户协议和隐私政策后再注册')
     return
   }
 
