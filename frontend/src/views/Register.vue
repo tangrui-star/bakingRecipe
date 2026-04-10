@@ -29,7 +29,7 @@
             <div class="step-label">{{ step }}</div>
           </div>
         </div>
-        
+
         <!-- 表单内容 -->
         <el-form :model="registerForm" :rules="rules" ref="registerFormRef" class="register-form">
           <!-- 步骤1: 基本信息 -->
@@ -37,69 +37,36 @@
             <el-form-item prop="username">
               <div class="input-wrapper">
                 <el-icon class="input-icon"><User /></el-icon>
-                <el-input
-                  v-model="registerForm.username"
-                  placeholder="用户名（3-20位，字母开头）"
-                  size="large"
-                  class="custom-input"
-                />
+                <el-input v-model="registerForm.username" placeholder="用户名（3-20位，字母开头）" size="large" class="custom-input" />
               </div>
             </el-form-item>
-            
             <el-form-item prop="email">
               <div class="input-wrapper">
                 <el-icon class="input-icon"><Message /></el-icon>
-                <el-input
-                  v-model="registerForm.email"
-                  placeholder="邮箱地址"
-                  size="large"
-                  class="custom-input"
-                />
+                <el-input v-model="registerForm.email" placeholder="邮箱地址" size="large" class="custom-input" />
               </div>
             </el-form-item>
-            
             <el-form-item prop="password">
               <div class="input-wrapper">
                 <el-icon class="input-icon"><Lock /></el-icon>
-                <el-input
-                  v-model="registerForm.password"
-                  type="password"
-                  placeholder="密码（8位+大小写+数字）"
-                  size="large"
-                  class="custom-input"
-                  show-password
-                />
+                <el-input v-model="registerForm.password" type="password" placeholder="密码（8位+大小写+数字）" size="large" class="custom-input" show-password />
               </div>
             </el-form-item>
-            
             <el-form-item prop="confirmPassword">
               <div class="input-wrapper">
                 <el-icon class="input-icon"><Lock /></el-icon>
-                <el-input
-                  v-model="registerForm.confirmPassword"
-                  type="password"
-                  placeholder="确认密码"
-                  size="large"
-                  class="custom-input"
-                  show-password
-                />
+                <el-input v-model="registerForm.confirmPassword" type="password" placeholder="确认密码" size="large" class="custom-input" show-password />
               </div>
             </el-form-item>
           </div>
-          
-          <!-- 步骤2: 验证码 -->
+
+          <!-- 步骤2: 验证码 + 协议 -->
           <div v-show="currentStep === 1" class="form-step">
             <el-form-item prop="captcha">
               <div class="captcha-wrapper">
                 <div class="input-wrapper flex-1">
                   <el-icon class="input-icon"><Key /></el-icon>
-                  <el-input
-                    v-model="registerForm.captcha"
-                    placeholder="图片验证码（4位数字）"
-                    size="large"
-                    class="custom-input"
-                    maxlength="4"
-                  />
+                  <el-input v-model="registerForm.captcha" placeholder="图片验证码（4位数字）" size="large" class="custom-input" maxlength="4" />
                 </div>
                 <div class="captcha-image" @click="refreshCaptcha">
                   <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" />
@@ -109,71 +76,25 @@
                 </div>
               </div>
             </el-form-item>
-            
+
             <el-form-item prop="emailCode">
               <div class="email-code-wrapper">
                 <div class="input-wrapper flex-1">
                   <el-icon class="input-icon"><Message /></el-icon>
-                  <el-input
-                    v-model="registerForm.emailCode"
-                    placeholder="邮箱验证码"
-                    size="large"
-                    class="custom-input"
-                    maxlength="6"
-                  />
+                  <el-input v-model="registerForm.emailCode" placeholder="邮箱验证码（6位）" size="large" class="custom-input" maxlength="6" />
                 </div>
-                <el-button
-                  class="send-code-btn"
-                  :disabled="countdown > 0"
-                  :loading="sendingCode"
-                  @click="sendEmailCode"
-                >
+                <el-button class="send-code-btn" :disabled="countdown > 0" :loading="sendingCode" @click="sendEmailCode">
                   {{ countdown > 0 ? `${countdown}秒后重试` : '发送验证码' }}
                 </el-button>
               </div>
             </el-form-item>
-            
+
             <div class="tip-box">
               <el-icon><InfoFilled /></el-icon>
-              <span>验证码已发送到您的邮箱，请注意查收。图片验证码和邮箱验证码有效期为5分钟，请尽快完成注册。</span>
+              <span>验证码有效期5分钟，请尽快完成注册。</span>
             </div>
-          </div>
-          
-          <!-- 步骤3: 个人信息 -->
-          <div v-show="currentStep === 2" class="form-step">
-            <el-form-item prop="phone">
-              <div class="input-wrapper">
-                <el-icon class="input-icon"><Phone /></el-icon>
-                <el-input
-                  v-model="registerForm.phone"
-                  placeholder="手机号（选填）"
-                  size="large"
-                  class="custom-input"
-                />
-              </div>
-            </el-form-item>
-            
-            <el-form-item prop="gender">
-              <el-radio-group v-model="registerForm.gender" class="gender-group">
-                <el-radio value="male">男</el-radio>
-                <el-radio value="female">女</el-radio>
-                <el-radio value="other">其他</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            
-            <el-form-item prop="shopName">
-              <div class="input-wrapper">
-                <el-icon class="input-icon"><Shop /></el-icon>
-                <el-input
-                  v-model="registerForm.shopName"
-                  placeholder="店铺名称（选填）"
-                  size="large"
-                  class="custom-input"
-                />
-              </div>
-            </el-form-item>
-            
-            <el-form-item>
+
+            <el-form-item style="margin-top: 16px;">
               <el-checkbox v-model="agreeTerms">
                 我已阅读并同意
                 <a href="#" class="link">用户协议</a>
@@ -183,30 +104,17 @@
             </el-form-item>
           </div>
         </el-form>
-        
+
         <!-- 按钮组 -->
         <div class="button-group">
-          <el-button
-            v-if="currentStep > 0"
-            size="large"
-            class="prev-btn"
-            @click="prevStep"
-          >
+          <el-button v-if="currentStep > 0" size="large" class="prev-btn" @click="prevStep">
             上一步
           </el-button>
-          
-          <el-button
-            v-if="currentStep < 2"
-            type="primary"
-            size="large"
-            class="next-btn"
-            @click="nextStep"
-          >
+          <el-button v-if="currentStep === 0" type="primary" size="large" class="next-btn" @click="nextStep">
             下一步
           </el-button>
-          
           <el-button
-            v-if="currentStep === 2"
+            v-if="currentStep === 1"
             type="primary"
             size="large"
             class="submit-btn"
@@ -227,7 +135,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, User, Message, Lock, Key, Phone, Shop,
+  ArrowLeft, User, Message, Lock, Key,
   Check, Loading, InfoFilled
 } from '@element-plus/icons-vue'
 import api from '@/api'
@@ -242,7 +150,7 @@ const captchaId = ref('')
 const currentStep = ref(0)
 const agreeTerms = ref(false)
 
-const steps = ['基本信息', '验证码', '个人信息']
+const steps = ['基本信息', '验证码']
 
 const registerForm = ref({
   username: '',
@@ -348,32 +256,13 @@ const sendEmailCode = async () => {
 
 const nextStep = async () => {
   if (!registerFormRef.value) return
-  
-  // 验证当前步骤的字段
+
   if (currentStep.value === 0) {
-    // 第一步：验证基本信息
     try {
       await registerFormRef.value.validateField(['username', 'email', 'password', 'confirmPassword'])
       currentStep.value++
     } catch (error) {
-      console.log('验证失败', error)
-    }
-  } else if (currentStep.value === 1) {
-    // 第二步：验证图片验证码和邮箱验证码
-    try {
-      await registerFormRef.value.validateField(['captcha', 'emailCode'])
-      
-      // 验证邮箱验证码是否正确（通过后端验证）
-      if (!registerForm.value.emailCode || registerForm.value.emailCode.length !== 6) {
-        ElMessage.warning('请输入6位邮箱验证码')
-        return
-      }
-      
-      // 提示用户验证码已验证，可以继续
-      ElMessage.success('验证码验证通过')
-      currentStep.value++
-    } catch (error) {
-      console.log('验证失败', error)
+      // 验证不通过，停留在当前步骤
     }
   }
 }
@@ -388,7 +277,14 @@ const handleRegister = async () => {
     ElMessage.warning('请先同意用户协议和隐私政策')
     return
   }
-  
+
+  // 验证验证码字段
+  try {
+    await registerFormRef.value.validateField(['captcha', 'emailCode'])
+  } catch (error) {
+    return
+  }
+
   loading.value = true
   try {
     const response = await api.auth.register({
