@@ -19,7 +19,7 @@ def send_verification_email(to_email: str, code: str, expire_minutes: int = 5) -
         logger.error("邮件配置未设置，请在.env中配置 SMTP_USER 和 SMTP_PASSWORD")
         return False, "邮件服务未配置"
 
-    subject = "【烘焙配方系统】注册验证码"
+    subject = "烘焙配方系统 - 注册验证码"
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f9f9f9; border-radius: 8px;">
         <h2 style="color: #3b82f6; margin-bottom: 8px;">烘焙配方系统</h2>
@@ -34,7 +34,7 @@ def send_verification_email(to_email: str, code: str, expire_minutes: int = 5) -
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_user}>"
+    msg["From"] = settings.smtp_user
     msg["To"] = to_email
     msg.attach(MIMEText(html_content, "html", "utf-8"))
 
