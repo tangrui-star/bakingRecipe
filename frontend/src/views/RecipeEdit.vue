@@ -63,7 +63,7 @@
               </el-form-item>
               
               <el-row :gutter="20">
-                <el-col :span="12">
+                <el-col :xs="24" :sm="12">
                   <el-form-item label="基础数量" prop="base_quantity">
                     <el-input-number
                       v-model="recipeForm.base_quantity"
@@ -75,8 +75,8 @@
                     <div class="form-tip">用于配方计算的基础数量</div>
                   </el-form-item>
                 </el-col>
-                
-                <el-col :span="12">
+
+                <el-col :xs="24" :sm="12">
                   <el-form-item label="基础重量" prop="base_weight">
                     <el-input-number
                       v-model="recipeForm.base_weight"
@@ -396,12 +396,21 @@ const addIngredient = () => {
 }
 
 // 删除原料
-const removeIngredient = (index) => {
-  recipeIngredients.value.splice(index, 1)
-  // 更新排序
-  recipeIngredients.value.forEach((item, idx) => {
-    item.sort_order = idx
-  })
+const removeIngredient = async (index) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个原料吗？', '提示', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
+    })
+    recipeIngredients.value.splice(index, 1)
+    recipeIngredients.value.forEach((item, idx) => {
+      item.sort_order = idx
+    })
+  } catch {
+    // 用户取消
+  }
 }
 
 // 获取原料信息
@@ -452,12 +461,21 @@ const addStep = () => {
 }
 
 // 删除步骤
-const removeStep = (index) => {
-  recipeSteps.value.splice(index, 1)
-  // 更新步骤号
-  recipeSteps.value.forEach((step, idx) => {
-    step.step_number = idx + 1
-  })
+const removeStep = async (index) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个步骤吗？', '提示', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
+    })
+    recipeSteps.value.splice(index, 1)
+    recipeSteps.value.forEach((step, idx) => {
+      step.step_number = idx + 1
+    })
+  } catch {
+    // 用户取消
+  }
 }
 
 // 计算总时长
@@ -689,10 +707,11 @@ const loadRecipe = async (id) => {
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-xl);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
-  backdrop-filter: blur(10px);
 }
 
 .header-left {
@@ -710,6 +729,7 @@ const loadRecipe = async (id) => {
 /* 主要内容 */
 .page-content {
   padding: var(--spacing-xl);
+  padding-top: calc(64px + var(--spacing-xl));
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -1019,6 +1039,7 @@ const loadRecipe = async (id) => {
   
   .page-content {
     padding: var(--spacing-md);
+    padding-top: calc(64px + var(--spacing-md));
     padding-bottom: 70px;
     width: 100%;
     max-width: 100vw;

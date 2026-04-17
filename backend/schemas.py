@@ -185,6 +185,7 @@ class UserResponse(BaseModel):
     shop_id: Optional[str] = None
     is_active: bool
     is_verified: bool
+    is_admin: bool = False
     last_login: Optional[datetime] = None
     created_at: datetime
     

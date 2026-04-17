@@ -61,6 +61,16 @@ def get_current_user(
     
     return user
 
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """要求管理员权限"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return current_user
+
 @router.get("/captcha")
 def get_captcha():
     """获取图片验证码"""

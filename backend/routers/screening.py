@@ -14,7 +14,7 @@ from datetime import datetime
 import io
 
 from database import get_db
-from models import Blacklist, OrderScreeningRecord, OrderScreeningDetail
+from models import Blacklist, BlacklistType, OrderScreeningRecord, OrderScreeningDetail
 from routers.auth import get_current_user
 
 
@@ -110,13 +110,12 @@ def blacklist_to_info(bl: Blacklist) -> dict:
     }
 
 
-def match_blacklist(order_data: dict, blacklist_items: List[Blacklist]) -> Optional[dict]:
+def _match_single_list(order_data: dict, blacklist_items: List[Blacklist], source: str) -> Optional[dict]:
     """
-    匹配规则（严格）：
+    在单个黑名单列表中匹配订单，返回最高风险结果（含 source 字段）。
+    匹配规则：
     - HIGH:   电话号码完全一致
     - MEDIUM: 下单人或收货人与黑名单 ktt_name / order_name_phone 严格相等
-              （名字部分相似一律忽略）
-    遍历所有黑名单，取最高风险结果返回。
     """
     ktt_name      = str(order_data.get('ktt_name', '')).strip()
     receiver_name = str(order_data.get('receiver_name', '')).strip()
@@ -139,6 +138,7 @@ def match_blacklist(order_data: dict, blacklist_items: List[Blacklist]) -> Optio
                         'match_reason':  build_match_reason('PHONE', phone, bl),
                         'risk_level':    'HIGH',
                         'confidence':    100,
+                        'source':        source,
                         **blacklist_to_info(bl),
                     }
                     return result
@@ -161,12 +161,34 @@ def match_blacklist(order_data: dict, blacklist_items: List[Blacklist]) -> Optio
                 'match_reason':  build_match_reason(match_type, matched_name, bl),
                 'risk_level':    'MEDIUM',
                 'confidence':    85 if addr_score >= 0.4 else 70,
+                'source':        source,
                 **blacklist_to_info(bl),
             }
             if best is None or best['priority'] > 1:
                 best = {'priority': 1, 'result': result}
 
     return best['result'] if best else None
+
+
+def match_blacklist(order_data: dict, system_items: List[Blacklist], user_items: List[Blacklist]) -> Optional[dict]:
+    """
+    双库匹配：分别在系统黑名单和用户黑名单中匹配，合并结果。
+    同一订单同时命中两库时，取风险等级更高的结果（HIGH > MEDIUM > LOW），
+    source 字段标注实际来源。
+    """
+    system_result = _match_single_list(order_data, system_items, 'SYSTEM')
+    user_result   = _match_single_list(order_data, user_items, 'USER')
+
+    if system_result is None:
+        return user_result
+    if user_result is None:
+        return system_result
+
+    # 两库都命中，取风险等级更高的
+    sys_priority  = RISK_LEVEL_ORDER.get(system_result.get('risk_level', 'LOW'), 2)
+    user_priority = RISK_LEVEL_ORDER.get(user_result.get('risk_level', 'LOW'), 2)
+    # 数值越小优先级越高（HIGH=0, MEDIUM=1, LOW=2）
+    return system_result if sys_priority <= user_priority else user_result
 
 
 @router.post("/check-orders", summary="检查订单Excel文件")
@@ -200,8 +222,15 @@ async def check_orders(
                 missing.append('联系电话/电话')
             raise HTTPException(status_code=400, detail=f"Excel文件缺少必要的列: {', '.join(missing)}")
 
-        blacklist_items = db.query(Blacklist).filter(Blacklist.shop_id == shop_id).all()
-        if not blacklist_items:
+        system_items = db.query(Blacklist).filter(
+            Blacklist.blacklist_type == BlacklistType.SYSTEM
+        ).all()
+        user_items = db.query(Blacklist).filter(
+            Blacklist.blacklist_type == BlacklistType.USER,
+            Blacklist.owner_id == current_user.id
+        ).all()
+
+        if not system_items and not user_items:
             return {
                 'file_name': file.filename,
                 'total_orders': len(df),
@@ -227,7 +256,7 @@ async def check_orders(
                 'row_number':    index + 2
             }
 
-            match_result = match_blacklist(order_data, blacklist_items)
+            match_result = match_blacklist(order_data, system_items, user_items)
             if match_result:
                 results.append({
                     'row_number':    order_data['row_number'],
@@ -264,7 +293,6 @@ async def check_orders(
         raise HTTPException(status_code=500, detail=f"处理文件时出错: {str(e)}")
 
 
-@router.post("/save-screening", summary="保存检查记录")
 @router.post("/save-screening", summary="保存检查记录")
 async def save_screening(
     screening_data: SaveScreeningRequest,

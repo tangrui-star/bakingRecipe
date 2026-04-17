@@ -23,6 +23,7 @@ class User(Base):
     shop_id = Column(String(36), ForeignKey('shops.id'))
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
     last_login = Column(DateTime)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -169,6 +170,25 @@ class RiskLevel(str, enum.Enum):
     LOW = "LOW"
 
 
+# 黑名单类型枚举
+class BlacklistType(str, enum.Enum):
+    USER = "USER"
+    SYSTEM = "SYSTEM"
+
+
+# 推送申请状态枚举
+class PushRequestStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+# 通知类型枚举
+class NotificationType(str, enum.Enum):
+    PUSH_APPROVED = "PUSH_APPROVED"
+    PUSH_REJECTED = "PUSH_REJECTED"
+
+
 class Blacklist(Base):
     __tablename__ = "blacklist"
     
@@ -185,8 +205,45 @@ class Blacklist(Base):
     blacklist_reason = Column(Text)
     risk_level = Column(SQLEnum(RiskLevel), default=RiskLevel.MEDIUM)
     created_by = Column(String(36))
+    blacklist_type = Column(SQLEnum(BlacklistType), default=BlacklistType.USER, nullable=False)
+    owner_id = Column(String(36), nullable=True)
+    source_push_request_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PushRequest(Base):
+    __tablename__ = "push_requests"
+
+    id = Column(Integer, primary_key=True)
+    blacklist_id = Column(Integer, ForeignKey('blacklist.id'), nullable=False)
+    applicant_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    evidence = Column(Text, nullable=False)
+    status = Column(SQLEnum(PushRequestStatus), default=PushRequestStatus.PENDING, nullable=False)
+    reject_reason = Column(Text, nullable=True)
+    reviewed_by = Column(String(36), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    blacklist_entry = relationship("Blacklist")
+    applicant = relationship("User", foreign_keys=[applicant_id])
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    type = Column(SQLEnum(NotificationType), nullable=False)
+    push_request_id = Column(Integer, ForeignKey('push_requests.id'), nullable=False)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    user = relationship("User")
+    push_request = relationship("PushRequest")
 
 
 # ==================== 订单检查系统模型 ====================

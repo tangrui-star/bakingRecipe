@@ -7,33 +7,42 @@
       :class="{ active: isActive(item.path) }"
       @click="navigate(item.path)"
     >
-      <el-icon :size="24" class="tab-icon">
-        <component :is="item.icon" />
-      </el-icon>
+      <div class="icon-wrapper">
+        <el-icon :size="24" class="tab-icon">
+          <component :is="item.icon" />
+        </el-icon>
+        <span v-if="item.path === '/notifications' && unreadCount > 0" class="badge">
+          {{ unreadCount > 99 ? '99+' : unreadCount }}
+        </span>
+      </div>
       <span class="tab-label">{{ item.label }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, markRaw } from 'vue'
+import { computed, markRaw, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   House, 
   Document, 
   Operation,
   Warning,
-  User 
+  User,
+  Bell
 } from '@element-plus/icons-vue'
+import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
+const unreadCount = ref(0)
 
 const tabs = [
   { path: '/dashboard', label: '首页', icon: markRaw(House) },
   { path: '/recipes', label: '配方', icon: markRaw(Document) },
   { path: '/blacklist', label: '黑名单', icon: markRaw(Warning) },
   { path: '/calculator', label: '计算', icon: markRaw(Operation) },
+  { path: '/notifications', label: '通知', icon: markRaw(Bell) },
   { path: '/profile', label: '我的', icon: markRaw(User) }
 ]
 
@@ -50,6 +59,23 @@ const navigate = (path) => {
     router.push(path)
   }
 }
+
+const fetchUnreadCount = async () => {
+  try {
+    const token = localStorage.getItem('access_token')
+    if (!token) return
+    const res = await axios.get('/api/notifications/unread-count', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    unreadCount.value = res.data.unread_count || 0
+  } catch {}
+}
+
+onMounted(() => {
+  fetchUnreadCount()
+  // 每60秒轮询一次未读数
+  setInterval(fetchUnreadCount, 60000)
+})
 </script>
 
 <style scoped>
@@ -123,5 +149,30 @@ const navigate = (path) => {
   height: 3px;
   background: var(--primary-blue);
   border-radius: 0 0 3px 3px;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: #ee0a24;
+  color: #fff;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

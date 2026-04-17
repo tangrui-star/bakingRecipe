@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-用户黑名单管理API路由（两级黑名单体系 - 用户层）
+系统黑名单管理API路由（两级黑名单体系 - 系统层，Admin Only）
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,19 +14,13 @@ import string
 
 from database import get_db
 from models import Blacklist, RiskLevel, BlacklistType
-from schemas import (
-    BlacklistCreate,
-    BlacklistUpdate,
-    BlacklistResponse,
-    BlacklistListResponse
-)
-from routers.auth import get_current_user
+from schemas import BlacklistCreate, BlacklistUpdate, BlacklistResponse, BlacklistListResponse
+from routers.auth import require_admin
 
-router = APIRouter(prefix="/api/blacklist", tags=["用户黑名单管理"])
+router = APIRouter(prefix="/api/system-blacklist", tags=["系统黑名单管理（Admin）"])
 
 
 def extract_phone_numbers(text: str) -> List[str]:
-    """从文本中提取电话号码"""
     if not text:
         return []
     phone_pattern = re.compile(r'1[3-9]\d{9}')
@@ -35,22 +29,18 @@ def extract_phone_numbers(text: str) -> List[str]:
 
 
 def generate_unique_id() -> str:
-    """生成10位唯一标识"""
     chars = string.ascii_uppercase + string.digits
     random_part = ''.join(random.choices(chars, k=8))
-    return f"BL{random_part}"
+    return f"SY{random_part}"
 
 
-@router.post("", response_model=BlacklistResponse, summary="创建用户黑名单条目")
-async def create_blacklist(
+@router.post("", response_model=BlacklistResponse, summary="创建系统黑名单条目")
+async def create_system_blacklist(
     blacklist_data: BlacklistCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """
-    创建新的用户黑名单条目
-    - 强制设置 owner_id=current_user.id、blacklist_type=USER
-    """
+    """创建系统黑名单条目，blacklist_type=SYSTEM，owner_id=None"""
     phone_numbers = []
     if blacklist_data.phone_numbers:
         phone_numbers = blacklist_data.phone_numbers
@@ -74,9 +64,8 @@ async def create_blacklist(
         blacklist_reason=blacklist_data.blacklist_reason,
         risk_level=RiskLevel(blacklist_data.risk_level),
         created_by=current_user.id,
-        # 两级黑名单：强制设置
-        owner_id=current_user.id,
-        blacklist_type=BlacklistType.USER,
+        blacklist_type=BlacklistType.SYSTEM,
+        owner_id=None,
     )
 
     db.add(blacklist)
@@ -86,21 +75,15 @@ async def create_blacklist(
     return blacklist
 
 
-@router.get("/statistics", summary="获取当前用户黑名单统计数据")
-async def get_blacklist_statistics(
+@router.get("/statistics", summary="获取系统黑名单统计数据")
+async def get_system_blacklist_statistics(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """
-    返回当前用户各风险等级数量，仅统计 owner_id=current_user.id AND blacklist_type=USER，
-    不包含系统黑名单数量。
-    """
+    """返回系统黑名单总数及各风险等级数量"""
     rows = (
         db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id))
-        .filter(
-            Blacklist.owner_id == current_user.id,
-            Blacklist.blacklist_type == BlacklistType.USER
-        )
+        .filter(Blacklist.blacklist_type == BlacklistType.SYSTEM)
         .group_by(Blacklist.risk_level)
         .all()
     )
@@ -114,25 +97,17 @@ async def get_blacklist_statistics(
     }
 
 
-@router.get("", response_model=BlacklistListResponse, summary="查询用户黑名单列表")
-async def get_blacklist_list(
+@router.get("", response_model=BlacklistListResponse, summary="查询系统黑名单列表")
+async def get_system_blacklist_list(
     risk_level: Optional[str] = Query(None, description="风险等级过滤 HIGH/MEDIUM/LOW"),
     search: Optional[str] = Query(None, description="搜索关键词（姓名或电话）"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """
-    查询当前用户的黑名单列表（owner_id=current_user.id AND blacklist_type=USER）
-    - 支持按风险等级过滤
-    - 支持按姓名或电话搜索
-    - 支持分页
-    """
-    query = db.query(Blacklist).filter(
-        Blacklist.owner_id == current_user.id,
-        Blacklist.blacklist_type == BlacklistType.USER
-    )
+    """查询系统黑名单列表，支持分页、风险等级过滤、关键词搜索"""
+    query = db.query(Blacklist).filter(Blacklist.blacklist_type == BlacklistType.SYSTEM)
 
     if risk_level:
         query = query.filter(Blacklist.risk_level == risk_level)
@@ -157,56 +132,51 @@ async def get_blacklist_list(
     }
 
 
-@router.get("/{blacklist_id}", response_model=BlacklistResponse, summary="获取用户黑名单详情")
-async def get_blacklist_detail(
+@router.get("/{blacklist_id}", response_model=BlacklistResponse, summary="获取系统黑名单详情")
+async def get_system_blacklist_detail(
     blacklist_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """获取黑名单条目详情（仅限当前用户自己的条目）"""
+    """获取系统黑名单条目详情"""
     blacklist = db.query(Blacklist).filter(
         Blacklist.id == blacklist_id,
-        Blacklist.owner_id == current_user.id,
-        Blacklist.blacklist_type == BlacklistType.USER
+        Blacklist.blacklist_type == BlacklistType.SYSTEM
     ).first()
 
     if not blacklist:
-        raise HTTPException(status_code=404, detail="黑名单条目不存在")
+        raise HTTPException(status_code=404, detail="系统黑名单条目不存在")
 
     return blacklist
 
 
-@router.put("/{blacklist_id}", response_model=BlacklistResponse, summary="更新用户黑名单条目")
-async def update_blacklist(
+@router.put("/{blacklist_id}", response_model=BlacklistResponse, summary="更新系统黑名单条目")
+async def update_system_blacklist(
     blacklist_id: int,
     blacklist_data: BlacklistUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """
-    更新黑名单条目
-    - 校验 owner_id == current_user.id，否则返回 403
-    """
-    blacklist = db.query(Blacklist).filter(Blacklist.id == blacklist_id).first()
+    """更新系统黑名单条目"""
+    blacklist = db.query(Blacklist).filter(
+        Blacklist.id == blacklist_id,
+        Blacklist.blacklist_type == BlacklistType.SYSTEM
+    ).first()
 
     if not blacklist:
-        raise HTTPException(status_code=404, detail="黑名单条目不存在")
-
-    if blacklist.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权操作此黑名单条目")
+        raise HTTPException(status_code=404, detail="系统黑名单条目不存在")
 
     update_data = blacklist_data.model_dump(exclude_unset=True)
 
     if 'phone_numbers' in update_data and update_data['phone_numbers']:
         pass
     elif 'order_name_phone' in update_data:
-        phone_numbers = extract_phone_numbers(update_data['order_name_phone'])
-        update_data['phone_numbers'] = phone_numbers
+        update_data['phone_numbers'] = extract_phone_numbers(update_data['order_name_phone'])
 
     if 'risk_level' in update_data:
         update_data['risk_level'] = RiskLevel(update_data['risk_level'])
 
-    # 禁止修改 owner_id 和 blacklist_type
+    # 禁止修改类型字段
     update_data.pop('owner_id', None)
     update_data.pop('blacklist_type', None)
 
@@ -219,25 +189,22 @@ async def update_blacklist(
     return blacklist
 
 
-@router.delete("/{blacklist_id}", summary="删除用户黑名单条目")
-async def delete_blacklist(
+@router.delete("/{blacklist_id}", summary="删除系统黑名单条目")
+async def delete_system_blacklist(
     blacklist_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_admin)
 ):
-    """
-    删除黑名单条目
-    - 校验 owner_id == current_user.id，否则返回 403
-    """
-    blacklist = db.query(Blacklist).filter(Blacklist.id == blacklist_id).first()
+    """删除系统黑名单条目"""
+    blacklist = db.query(Blacklist).filter(
+        Blacklist.id == blacklist_id,
+        Blacklist.blacklist_type == BlacklistType.SYSTEM
+    ).first()
 
     if not blacklist:
-        raise HTTPException(status_code=404, detail="黑名单条目不存在")
-
-    if blacklist.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权操作此黑名单条目")
+        raise HTTPException(status_code=404, detail="系统黑名单条目不存在")
 
     db.delete(blacklist)
     db.commit()
 
-    return {"success": True, "message": "黑名单条目已删除"}
+    return {"success": True, "message": "系统黑名单条目已删除"}

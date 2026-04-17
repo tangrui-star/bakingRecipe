@@ -88,8 +88,9 @@
       v-model="dialogVisible"
       :title="`v${selectedVersion?.version} - ${selectedVersion?.name}`"
       width="95%"
-      top="5vh"
-      :fullscreen="isMobile"
+      style="max-width: 640px; margin: auto;"
+      :show-close="true"
+      align-center
     >
       <div v-if="selectedVersion" class="version-detail">
         <!-- 基本信息 -->
@@ -292,12 +293,13 @@ onMounted(() => {
 
 /* 移动端顶部 */
 .mobile-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
 }
 
 .header-content {
@@ -317,6 +319,7 @@ onMounted(() => {
 /* 主要内容 */
 .history-content {
   padding: 12px;
+  padding-top: 60px;
 }
 
 .loading-container {
@@ -457,8 +460,9 @@ onMounted(() => {
 
 /* 版本详情 */
 .version-detail {
-  max-height: 70vh;
+  max-height: 60vh;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .detail-section {
@@ -636,15 +640,23 @@ onMounted(() => {
   .history-container {
     padding-bottom: 0;
   }
-  
+
   .mobile-header {
-    display: none;
+    display: flex;
   }
-  
+
+  .header-content {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 12px 20px;
+  }
+
   .history-content {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
+    padding-top: 68px;
   }
   
   .versions-list {

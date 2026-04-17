@@ -67,6 +67,18 @@
             </div>
             <el-icon class="tool-arrow"><ArrowRight /></el-icon>
           </div>
+
+          <!-- 管理员入口，仅管理员可见 -->
+          <div v-if="isAdmin" class="tool-card admin-card" @click="handleToolClick('admin')">
+            <div class="tool-icon" style="background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%)">
+              <el-icon :size="28"><Tools /></el-icon>
+            </div>
+            <div class="tool-content">
+              <div class="tool-label">管理员后台</div>
+              <div class="tool-desc">系统黑名单、审核、用户管理</div>
+            </div>
+            <el-icon class="tool-arrow"><ArrowRight /></el-icon>
+          </div>
         </div>
       </div>
 
@@ -127,12 +139,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   User, Setting, SwitchButton, ArrowRight,
   DataAnalysis, Document, TrendCharts, Shop,
-  Operation, Warning, Dish, Box
+  Operation, Warning, Dish, Box, Tools
 } from '@element-plus/icons-vue'
 import api from '@/api'
 
 const router = useRouter()
 const userInfo = ref(JSON.parse(localStorage.getItem('user_info') || '{}'))
+const isAdmin = computed(() => userInfo.value.is_admin === true)
 
 // 功能工具
 const tools = ref([
@@ -321,6 +334,9 @@ const handleToolClick = (action) => {
     case 'logistics-process':
       router.push('/logistics-process')
       break
+    case 'admin':
+      router.push('/admin')
+      break
   }
 }
 
@@ -349,12 +365,13 @@ onMounted(async () => {
 
 /* 移动端顶部 */
 .mobile-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: #fff;
   border-bottom: 1px solid #ebeef5;
-  backdrop-filter: blur(10px);
 }
 
 .header-content {
@@ -378,6 +395,7 @@ onMounted(async () => {
 /* 主要内容区 */
 .dashboard-content {
   padding: 12px;
+  padding-top: 60px; /* header高度48px + 间距 */
 }
 
 /* 欢迎卡片 */
@@ -473,6 +491,10 @@ onMounted(async () => {
 .tool-arrow {
   color: #c0c4cc;
   font-size: 16px;
+}
+
+.admin-card {
+  border: 1px solid #ffd200;
 }
 
 /* 数据维护区 */

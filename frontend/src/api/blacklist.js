@@ -81,6 +81,20 @@ export const blacklistAPI = {
    */
   delete(id) {
     return api.delete(`/api/blacklist/${id}`)
+  },
+
+  /**
+   * 申请推送至系统黑名单
+   */
+  pushRequest(blacklistId, evidence) {
+    return api.post('/api/push-requests', { blacklist_id: blacklistId, evidence })
+  },
+
+  /**
+   * 查询我的推送申请列表
+   */
+  getMyPushRequests(page = 1, pageSize = 20) {
+    return api.get('/api/push-requests/my', { params: { page, page_size: pageSize } })
   }
 }
 

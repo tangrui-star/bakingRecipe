@@ -8,7 +8,7 @@
       <div class="brand-area">
         <div class="logo-wrapper">
           <div class="hexagon-logo"></div>
-          <h1 class="brand-title">烘焙配方</h1>
+          <h1 class="brand-title">Aitbake</h1>
           <p class="brand-subtitle">Baking Recipe System</p>
         </div>
         

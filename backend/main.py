@@ -8,10 +8,11 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from routers import recipes, ingredients, categories, shops, auth, blacklist, screening, order_process
+from routers import system_blacklist, push_requests, notifications, admin
 from config import settings
 
 app = FastAPI(
-    title="烘焙配方管理系统 API",
+    title="Aitbake API",
     version="2.0.0",
     description="包含用户认证、配方管理等功能"
 )
@@ -37,14 +38,18 @@ app.include_router(shops.router, prefix="/api/shops", tags=["店铺"])
 app.include_router(categories.router, prefix="/api/categories", tags=["品类"])
 app.include_router(ingredients.router, prefix="/api/ingredients", tags=["原料"])
 app.include_router(recipes.router, prefix="/api/recipes", tags=["配方"])
-app.include_router(blacklist.router, tags=["黑名单管理"])
+app.include_router(blacklist.router, tags=["用户黑名单管理"])
+app.include_router(system_blacklist.router, tags=["系统黑名单管理（Admin）"])
+app.include_router(push_requests.router, tags=["推送申请"])
+app.include_router(notifications.router, tags=["站内通知"])
+app.include_router(admin.router, tags=["管理员后台"])
 app.include_router(screening.router, tags=["订单检查"])
 app.include_router(order_process.router, tags=["订单数据处理"])
 
 @app.get("/")
 def root():
     return {
-        "message": "烘焙配方管理系统 API",
+        "message": "Aitbake API",
         "version": "2.0.0",
         "features": ["用户认证", "配方管理", "版本控制", "配方计算", "热量计算", "黑名单管理", "订单检查"]
     }

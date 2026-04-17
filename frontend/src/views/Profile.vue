@@ -256,12 +256,13 @@ const handleLogout = async () => {
 
 /* 移动端顶部 */
 .mobile-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
 }
 
 .header-content {
@@ -281,6 +282,7 @@ const handleLogout = async () => {
 /* 主要内容 */
 .profile-content {
   padding: 12px;
+  padding-top: 60px;
 }
 
 /* 用户卡片 */

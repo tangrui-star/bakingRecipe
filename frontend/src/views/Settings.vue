@@ -66,7 +66,7 @@
         <div class="settings-card">
           <div class="info-item">
             <span class="info-label">系统名称</span>
-            <span class="info-value">烘焙配方管理系统</span>
+            <span class="info-value">Aitbake</span>
           </div>
           <div class="info-item">
             <span class="info-label">版本号</span>
@@ -160,12 +160,13 @@ const handleChangePassword = async () => {
 
 /* 移动端顶部 */
 .mobile-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
 }
 
 .header-content {
@@ -185,6 +186,7 @@ const handleChangePassword = async () => {
 /* 主要内容 */
 .settings-content {
   padding: 12px;
+  padding-top: 60px;
 }
 
 /* 设置区块 */
@@ -235,15 +237,23 @@ const handleChangePassword = async () => {
   .settings-container {
     padding-bottom: 0;
   }
-  
+
   .mobile-header {
-    display: none;
+    display: flex;
   }
-  
+
+  .header-content {
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 12px 20px;
+  }
+
   .settings-content {
     max-width: 600px;
     margin: 0 auto;
     padding: 20px;
+    padding-top: 68px;
   }
 }
 </style>

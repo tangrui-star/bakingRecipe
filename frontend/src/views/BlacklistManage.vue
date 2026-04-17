@@ -71,7 +71,9 @@
               </div>
               <van-icon name="arrow" class="arrow-icon" />
             </div>
-            <div class="contact-info" v-if="item.phone_numbers && item.phone_numbers.length > 0">
+            <div class="card-push-action" @click.stop="onPushRequest(item)">
+              <van-button size="small" plain type="primary" icon="share-o">申请推送至系统库</van-button>
+            </div>            <div class="contact-info" v-if="item.phone_numbers && item.phone_numbers.length > 0">
               <van-icon name="phone-o" class="info-icon" />
               <span class="phone-text">{{ item.phone_numbers.join(', ') }}</span>
             </div>
@@ -210,6 +212,7 @@ const onAdd = () => router.push('/blacklist/edit')
 const goToScreening = () => router.push('/screening')
 const goToHistory = () => router.push('/screening-history')
 const onEdit = (item) => router.push(`/blacklist/edit/${item.id}`)
+const onPushRequest = (item) => router.push(`/push-request/${item.id}`)
 
 const onDelete = async (item) => {
   try {
@@ -250,8 +253,10 @@ onMounted(() => {
 
 /* 搜索区域 */
 .search-bar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -262,8 +267,8 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   margin: 12px 16px;
+  margin-top: 68px; /* search-bar高度约54px + 间距 */
   flex-direction: column;
-
 }
 
 .entry-card {
@@ -508,6 +513,12 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.card-push-action {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
 }
 
 /* 卡片底部 */

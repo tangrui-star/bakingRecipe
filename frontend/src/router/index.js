@@ -118,6 +118,51 @@ const routes = [
     name: 'LogisticsProcess',
     component: () => import('@/views/LogisticsProcess.vue'),
     meta: { requiresAuth: true, title: '中通快递表生成' }
+  },
+  // 通知中心
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('@/views/Notifications.vue'),
+    meta: { requiresAuth: true, title: '通知中心' }
+  },
+  // 推送申请
+  {
+    path: '/push-request/:id',
+    name: 'PushRequest',
+    component: () => import('@/views/PushRequest.vue'),
+    meta: { requiresAuth: true, title: '申请推送' }
+  },
+  {
+    path: '/my-push-requests',
+    name: 'MyPushRequests',
+    component: () => import('@/views/MyPushRequests.vue'),
+    meta: { requiresAuth: true, title: '我的推送申请' }
+  },
+  // 管理员后台
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: () => import('@/views/admin/AdminDashboard.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '管理员后台' }
+  },
+  {
+    path: '/admin/system-blacklist',
+    name: 'SystemBlacklist',
+    component: () => import('@/views/admin/SystemBlacklist.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '系统黑名单管理' }
+  },
+  {
+    path: '/admin/push-requests',
+    name: 'PushRequestReview',
+    component: () => import('@/views/admin/PushRequestReview.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '推送申请审核' }
+  },
+  {
+    path: '/admin/users',
+    name: 'UserManagement',
+    component: () => import('@/views/admin/UserManagement.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '用户管理' }
   }
 ]
 
@@ -130,13 +175,36 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('access_token')
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  
-  if (requiresAuth && !token) {
-    // 需要认证但没有token，跳转登录
+
+  // 检查token是否存在且未过期
+  const isTokenValid = () => {
+    if (!token) return false
+    try {
+      // JWT payload是base64编码的第二段
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      // exp是秒级时间戳
+      return payload.exp * 1000 > Date.now()
+    } catch {
+      return false
+    }
+  }
+
+  if (requiresAuth && !isTokenValid()) {
+    // token不存在或已过期，清除并跳转登录
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user_info')
     next('/login')
-  } else if (!requiresAuth && token && (to.path === '/login' || to.path === '/register')) {
-    // 已登录用户访问登录/注册页，跳转仪表盘
+  } else if (!requiresAuth && isTokenValid() && (to.path === '/login' || to.path === '/register')) {
     next('/dashboard')
+  } else if (to.matched.some(r => r.meta.requiresAdmin)) {
+    // 需要管理员权限
+    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+    if (!userInfo.is_admin) {
+      next('/dashboard')
+    } else {
+      next()
+    }
   } else {
     next()
   }
