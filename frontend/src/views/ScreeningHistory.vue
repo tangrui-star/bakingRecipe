@@ -10,75 +10,81 @@
 
     <div class="content-container">
       <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-        <van-list
-          v-model:loading="loading"
-          :finished="finished"
-          finished-text="没有更多了"
-          @load="onLoad"
+        <!-- 展开/收起控制栏 -->
+        <div class="list-toolbar" v-if="list.length > 0">
+          <span class="list-count">共 {{ total }} 条记录</span>
+          <van-button size="mini" plain @click="toggleExpandAll">
+            {{ allExpanded ? '收起' : `展开全部(${total})` }}
+          </van-button>
+        </div>
+
+        <div
+          v-for="item in displayedList"
+          :key="item.id"
+          class="history-card"
         >
-          <div
-            v-for="item in list"
-            :key="item.id"
-            class="history-card"
-          >
-            <!-- 卡片头部：点击展开/收起 -->
-            <div class="card-header" @click="toggleExpand(item.id)">
-              <van-icon name="description" class="file-icon" />
-              <div class="file-info">
-                <div class="file-name">{{ item.file_name }}</div>
-                <div class="file-time">{{ formatTime(item.screening_time) }}</div>
-              </div>
-              <van-icon
-                :name="expandedIds.has(item.id) ? 'arrow-up' : 'arrow-down'"
-                class="expand-icon"
-              />
+          <!-- 卡片头部：点击展开/收起 -->
+          <div class="card-header" @click="toggleExpand(item.id)">
+            <van-icon name="description" class="file-icon" />
+            <div class="file-info">
+              <div class="file-name">{{ item.file_name }}</div>
+              <div class="file-time">{{ formatTime(item.screening_time) }}</div>
             </div>
+            <van-icon
+              :name="expandedIds.has(item.id) ? 'arrow-up' : 'arrow-down'"
+              class="expand-icon"
+            />
+          </div>
 
-            <!-- 展开内容 -->
-            <div v-if="expandedIds.has(item.id)">
-              <div class="card-stats">
-                <div class="stat-item">
-                  <span class="stat-label">总订单</span>
-                  <span class="stat-value">{{ item.total_orders }}</span>
-                </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item danger">
-                  <span class="stat-label">命中</span>
-                  <span class="stat-value">{{ item.matched_count }}</span>
-                </div>
+          <!-- 展开内容 -->
+          <div v-if="expandedIds.has(item.id)">
+            <div class="card-stats">
+              <div class="stat-item">
+                <span class="stat-label">总订单</span>
+                <span class="stat-value">{{ item.total_orders }}</span>
               </div>
-
-              <div class="card-footer">
-                <van-button size="small" type="primary" plain @click.stop="viewDetail(item)">
-                  查看详情
-                </van-button>
-                <van-button size="small" type="danger" plain @click.stop="deleteRecord(item)">
-                  删除
-                </van-button>
+              <div class="stat-divider"></div>
+              <div class="stat-item danger">
+                <span class="stat-label">命中</span>
+                <span class="stat-value">{{ item.matched_count }}</span>
               </div>
             </div>
 
-            <!-- 收起时显示简要信息 -->
-            <div v-else class="card-summary">
-              <span :class="item.matched_count > 0 ? 'hit' : 'safe'">
-                命中 {{ item.matched_count }} / {{ item.total_orders }} 条
-              </span>
+            <div class="card-footer">
+              <van-button size="small" type="primary" plain @click.stop="viewDetail(item)">
+                查看详情
+              </van-button>
+              <van-button size="small" type="danger" plain @click.stop="deleteRecord(item)">
+                删除
+              </van-button>
             </div>
           </div>
 
-          <van-empty
-            v-if="!loading && list.length === 0"
-            description="暂无检查记录"
-            image="search"
-          />
-        </van-list>
+          <!-- 收起时显示简要信息 -->
+          <div v-else class="card-summary">
+            <span :class="item.matched_count > 0 ? 'hit' : 'safe'">
+              命中 {{ item.matched_count }} / {{ item.total_orders }} 条
+            </span>
+          </div>
+        </div>
+
+        <!-- 未展开时显示"还有N条" -->
+        <div v-if="!allExpanded && total > 3" class="show-more" @click="toggleExpandAll">
+          还有 {{ total - 3 }} 条，点击展开全部
+        </div>
+
+        <van-empty
+          v-if="!loading && list.length === 0"
+          description="暂无检查记录"
+          image="search"
+        />
       </van-pull-refresh>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 
@@ -86,16 +92,25 @@ const router = useRouter()
 
 const list = ref([])
 const loading = ref(false)
-const finished = ref(false)
 const refreshing = ref(false)
-const page = ref(1)
-const pageSize = 20
+const total = ref(0)
 const expandedIds = ref(new Set())
+const allExpanded = ref(false)
+
+// 默认显示3条，展开后显示全部
+const displayedList = computed(() => allExpanded.value ? list.value : list.value.slice(0, 3))
 
 const toggleExpand = (id) => {
   const s = new Set(expandedIds.value)
   s.has(id) ? s.delete(id) : s.add(id)
   expandedIds.value = s
+}
+
+const toggleExpandAll = async () => {
+  if (!allExpanded.value && list.value.length < total.value) {
+    await loadList(true)
+  }
+  allExpanded.value = !allExpanded.value
 }
 
 // 获取店铺ID
@@ -105,31 +120,19 @@ const getShopId = () => {
 }
 
 // 加载列表
-const loadList = async () => {
-  if (finished.value) return
-
+const loadList = async (loadAll = false) => {
+  loading.value = true
   try {
     const shopId = getShopId()
     const token = localStorage.getItem('access_token')
-
-    const response = await fetch(`/api/screening/history?shop_id=${shopId}&page=${page.value}&page_size=${pageSize}`, {
+    const pageSize = loadAll ? 100 : 50
+    const response = await fetch(`/api/screening/history?shop_id=${shopId}&page=1&page_size=${pageSize}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
-
     if (!response.ok) throw new Error('加载失败')
-
     const data = await response.json()
-    if (page.value === 1) {
-      list.value = data.items
-    } else {
-      list.value.push(...data.items)
-    }
-
-    page.value++   // 加载成功后才递增页码
-
-    if (list.value.length >= data.total) {
-      finished.value = true
-    }
+    list.value = data.items
+    total.value = data.total
   } catch (error) {
     showToast('加载失败：' + error.message)
   } finally {
@@ -138,17 +141,9 @@ const loadList = async () => {
   }
 }
 
-// van-list 触发加载（唯一入口）
-const onLoad = () => {
-  if (refreshing.value) return
-  loadList()
-}
-
 // 下拉刷新
 const onRefresh = () => {
-  page.value = 1
-  finished.value = false
-  list.value = []
+  allExpanded.value = false
   loadList()
 }
 
@@ -207,7 +202,7 @@ const onBack = () => {
 }
 
 onMounted(() => {
-  // van-list 初始化时会自动触发 @load，无需手动调用
+  loadList()
 })
 </script>
 
@@ -325,6 +320,23 @@ onMounted(() => {
 
 .card-summary .hit  { color: #ee0a24; font-weight: 600; }
 .card-summary .safe { color: #07c160; }
+
+.list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 10px;
+}
+
+.list-count { font-size: 13px; color: #969799; }
+
+.show-more {
+  text-align: center;
+  font-size: 13px;
+  color: #1989fa;
+  padding: 10px 0 4px;
+  cursor: pointer;
+}
 
 /* 导航栏样式 */
 :deep(.van-nav-bar) {

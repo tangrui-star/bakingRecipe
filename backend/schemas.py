@@ -167,7 +167,7 @@ class UserLogin(BaseModel):
     username_or_email: str
     password: str
     captcha_id: str
-    captcha_code: str = Field(..., min_length=4, max_length=4)
+    captcha_code: str = Field(..., min_length=4)
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None

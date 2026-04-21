@@ -226,10 +226,14 @@ def login(login_data: UserLogin, request: Request, db: Session = Depends(get_db)
     logger.warning(f"[LOGIN] password长度: {len(login_data.password) if login_data.password else 0}")
 
     # 1. 验证图片验证码（验证成功后删除）
-    success, message = captcha_manager.verify_captcha(login_data.captcha_id, login_data.captcha_code, delete_after_verify=True)
-    logger.warning(f"[LOGIN] 步骤1 验证码校验: success={success}, message={message}")
-    if not success:
-        raise HTTPException(status_code=400, detail=f"验证码错误: {message}")
+    # 如果是滑动验证通过的登录，captcha_id='slider'，直接跳过图片验证码校验
+    if login_data.captcha_id != 'slider':
+        success, message = captcha_manager.verify_captcha(login_data.captcha_id, login_data.captcha_code, delete_after_verify=True)
+        logger.warning(f"[LOGIN] 步骤1 验证码校验: success={success}, message={message}")
+        if not success:
+            raise HTTPException(status_code=400, detail=f"验证码错误: {message}")
+    else:
+        logger.warning(f"[LOGIN] 步骤1 滑动验证通过，跳过图片验证码")
 
     # 2. 查找用户（支持用户名或邮箱登录）
     user = db.query(User).filter(

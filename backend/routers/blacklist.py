@@ -92,18 +92,16 @@ async def get_blacklist_statistics(
     current_user=Depends(get_current_user)
 ):
     """
-    返回当前用户各风险等级数量，仅统计 owner_id=current_user.id AND blacklist_type=USER，
-    不包含系统黑名单数量。
+    管理员：统计所有用户黑名单
+    普通用户：仅统计自己的黑名单，不包含系统黑名单数量
     """
-    rows = (
-        db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id))
-        .filter(
-            Blacklist.owner_id == current_user.id,
-            Blacklist.blacklist_type == BlacklistType.USER
-        )
-        .group_by(Blacklist.risk_level)
-        .all()
+    query = db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id)).filter(
+        Blacklist.blacklist_type == BlacklistType.USER
     )
+    if not current_user.is_admin:
+        query = query.filter(Blacklist.owner_id == current_user.id)
+
+    rows = query.group_by(Blacklist.risk_level).all()
     counts = {r[0].value if hasattr(r[0], 'value') else r[0]: r[1] for r in rows}
     total = sum(counts.values())
     return {
@@ -124,15 +122,12 @@ async def get_blacklist_list(
     current_user=Depends(get_current_user)
 ):
     """
-    查询当前用户的黑名单列表（owner_id=current_user.id AND blacklist_type=USER）
-    - 支持按风险等级过滤
-    - 支持按姓名或电话搜索
-    - 支持分页
+    管理员：查询所有用户的黑名单列表
+    普通用户：仅查询自己的黑名单（owner_id=current_user.id AND blacklist_type=USER）
     """
-    query = db.query(Blacklist).filter(
-        Blacklist.owner_id == current_user.id,
-        Blacklist.blacklist_type == BlacklistType.USER
-    )
+    query = db.query(Blacklist).filter(Blacklist.blacklist_type == BlacklistType.USER)
+    if not current_user.is_admin:
+        query = query.filter(Blacklist.owner_id == current_user.id)
 
     if risk_level:
         query = query.filter(Blacklist.risk_level == risk_level)
@@ -163,12 +158,14 @@ async def get_blacklist_detail(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """获取黑名单条目详情（仅限当前用户自己的条目）"""
-    blacklist = db.query(Blacklist).filter(
+    """获取黑名单条目详情（管理员可查看任意条目，普通用户仅限自己的）"""
+    query = db.query(Blacklist).filter(
         Blacklist.id == blacklist_id,
-        Blacklist.owner_id == current_user.id,
         Blacklist.blacklist_type == BlacklistType.USER
-    ).first()
+    )
+    if not current_user.is_admin:
+        query = query.filter(Blacklist.owner_id == current_user.id)
+    blacklist = query.first()
 
     if not blacklist:
         raise HTTPException(status_code=404, detail="黑名单条目不存在")

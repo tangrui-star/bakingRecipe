@@ -63,22 +63,23 @@
             </div>
           </el-form-item>
           
-          <el-form-item prop="captcha">
-            <div class="captcha-wrapper">
-              <div class="input-wrapper flex-1">
-                <el-icon class="input-icon"><Key /></el-icon>
-                <el-input
-                  v-model="loginForm.captcha"
-                  placeholder="图片验证码（4位数字）"
-                  size="large"
-                  class="custom-input"
-                  maxlength="4"
-                />
-              </div>
-              <div class="captcha-image" @click="refreshCaptcha">
-                <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" />
-                <div v-else class="captcha-loading">
-                  <el-icon class="is-loading"><Loading /></el-icon>
+          <!-- 滑动验证 -->
+          <el-form-item>
+            <div class="slider-captcha" :class="{ verified: sliderVerified, error: sliderError }">
+              <div
+                class="slider-track"
+                ref="sliderTrack"
+              >
+                <div class="slider-fill" :style="{ width: sliderFillWidth }"></div>
+                <div class="slider-text">{{ sliderText }}</div>
+                <div
+                  class="slider-btn"
+                  :style="{ left: sliderBtnLeft }"
+                  @mousedown="onSliderStart"
+                  @touchstart.prevent="onSliderStart"
+                >
+                  <el-icon v-if="!sliderVerified"><ArrowRight /></el-icon>
+                  <el-icon v-else><Check /></el-icon>
                 </div>
               </div>
             </div>
@@ -111,23 +112,85 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Key, Loading } from '@element-plus/icons-vue'
+import { User, Lock, ArrowRight, Check } from '@element-plus/icons-vue'
 import api from '@/api'
 
 const router = useRouter()
 const loginFormRef = ref(null)
 const loading = ref(false)
 const rememberMe = ref(false)
-const captchaUrl = ref('')
-const captchaId = ref('')
+
+// 滑动验证
+const sliderTrack = ref(null)
+const sliderVerified = ref(false)
+const sliderError = ref(false)
+const sliderBtnLeft = ref('0px')
+const sliderFillWidth = ref('0px')
+const isDragging = ref(false)
+const startX = ref(0)
+const currentX = ref(0)
+
+const sliderText = computed(() => {
+  if (sliderVerified.value) return '验证通过'
+  if (isDragging.value) return ''
+  return '向右滑动完成验证'
+})
+
+const onSliderStart = (e) => {
+  if (sliderVerified.value) return
+  isDragging.value = true
+  sliderError.value = false
+  startX.value = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX
+
+  const onMove = (ev) => {
+    if (!isDragging.value) return
+    const clientX = ev.type === 'touchmove' ? ev.touches[0].clientX : ev.clientX
+    const trackWidth = sliderTrack.value?.offsetWidth || 300
+    const btnWidth = 44
+    const maxMove = trackWidth - btnWidth
+    const moved = Math.min(Math.max(clientX - startX.value, 0), maxMove)
+    currentX.value = moved
+    sliderBtnLeft.value = moved + 'px'
+    sliderFillWidth.value = (moved + btnWidth) + 'px'
+  }
+
+  const onEnd = () => {
+    if (!isDragging.value) return
+    isDragging.value = false
+    const trackWidth = sliderTrack.value?.offsetWidth || 300
+    const btnWidth = 44
+    const maxMove = trackWidth - btnWidth
+    // 滑到末尾 90% 以上视为通过
+    if (currentX.value >= maxMove * 0.9) {
+      sliderVerified.value = true
+      sliderBtnLeft.value = maxMove + 'px'
+      sliderFillWidth.value = trackWidth + 'px'
+    } else {
+      // 未通过，回弹
+      sliderError.value = true
+      sliderBtnLeft.value = '0px'
+      sliderFillWidth.value = '0px'
+      currentX.value = 0
+      setTimeout(() => { sliderError.value = false }, 600)
+    }
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onEnd)
+    document.removeEventListener('touchmove', onMove)
+    document.removeEventListener('touchend', onEnd)
+  }
+
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onEnd)
+  document.addEventListener('touchmove', onMove, { passive: false })
+  document.addEventListener('touchend', onEnd)
+}
 
 const loginForm = ref({
   username: '',
-  password: '',
-  captcha: ''
+  password: ''
 })
 
 const features = [
@@ -144,48 +207,38 @@ const rules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 8, message: '密码长度至少8位', trigger: 'blur' }
-  ],
-  captcha: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 4, message: '验证码为4位数字', trigger: 'blur' }
   ]
-}
-
-const refreshCaptcha = async () => {
-  try {
-    const response = await fetch('/api/auth/captcha')
-    captchaId.value = response.headers.get('X-Captcha-ID')
-    const blob = await response.blob()
-    captchaUrl.value = URL.createObjectURL(blob)
-  } catch (error) {
-    ElMessage.error('获取验证码失败')
-  }
 }
 
 const handleLogin = async () => {
   if (!loginFormRef.value) return
-  
+
+  if (!sliderVerified.value) {
+    ElMessage.warning('请先完成滑动验证')
+    sliderError.value = true
+    setTimeout(() => { sliderError.value = false }, 600)
+    return
+  }
+
   await loginFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
+
     loading.value = true
     try {
       const response = await api.auth.login({
         username_or_email: loginForm.value.username,
         password: loginForm.value.password,
-        captcha_id: captchaId.value,
-        captcha_code: loginForm.value.captcha
+        captcha_id: 'slider',
+        captcha_code: 'slider'
       })
-      
-      // 保存token
+
       localStorage.setItem('access_token', response.access_token)
       localStorage.setItem('refresh_token', response.refresh_token)
       localStorage.setItem('user_info', JSON.stringify(response.user))
-      
+
       ElMessage.success('登录成功！')
       router.push('/dashboard')
     } catch (error) {
-      // 优先显示后端返回的具体错误信息
       const detail = error.response?.data?.detail
       if (detail) {
         ElMessage.error(detail)
@@ -194,17 +247,18 @@ const handleLogin = async () => {
       } else {
         ElMessage.error('登录失败，请稍后重试')
       }
-      refreshCaptcha()
-      loginForm.value.captcha = ''
+      // 登录失败重置滑块
+      sliderVerified.value = false
+      sliderBtnLeft.value = '0px'
+      sliderFillWidth.value = '0px'
+      currentX.value = 0
     } finally {
       loading.value = false
     }
   })
 }
 
-onMounted(() => {
-  refreshCaptcha()
-})
+onMounted(() => {})
 </script>
 
 <style scoped>
@@ -493,6 +547,100 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
+}
+
+/* 滑动验证 */
+.slider-captcha {
+  width: 100%;
+  user-select: none;
+}
+
+.slider-track {
+  position: relative;
+  width: 100%;
+  height: 44px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-base);
+}
+
+.slider-captcha:not(.verified):not(.error) .slider-track:hover {
+  border-color: var(--border-focus);
+}
+
+.slider-captcha.verified .slider-track {
+  border-color: #67c23a;
+}
+
+.slider-captcha.error .slider-track {
+  border-color: #f56c6c;
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(139,92,246,.15));
+  transition: background 0.3s;
+}
+
+.slider-captcha.verified .slider-fill {
+  background: linear-gradient(135deg, rgba(103,194,58,.2), rgba(103,194,58,.1));
+}
+
+.slider-text {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  line-height: 44px;
+  font-size: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.slider-captcha.verified .slider-text {
+  color: #67c23a;
+  font-weight: 600;
+}
+
+.slider-btn {
+  position: absolute;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: grab;
+  z-index: 2;
+  transition: background 0.3s;
+  box-shadow: 0 2px 8px rgba(59,130,246,.3);
+}
+
+.slider-captcha.verified .slider-btn {
+  background: linear-gradient(135deg, #67c23a, #85ce61);
+  cursor: default;
+  box-shadow: 0 2px 8px rgba(103,194,58,.3);
+}
+
+.slider-btn:active {
+  cursor: grabbing;
 }
 
 .form-footer {

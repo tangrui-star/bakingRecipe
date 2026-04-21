@@ -9,41 +9,99 @@
 
     <div class="content">
       <!-- 统计卡片 -->
-      <div class="stats-grid" v-loading="loading">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg,#667eea,#764ba2)">
-            <el-icon :size="22"><Warning /></el-icon>
+      <div v-loading="loading">
+        <!-- 用户黑名单统计 -->
+        <div class="section-title-bar">全平台用户黑名单</div>
+        <div class="stats-grid" style="margin-bottom:16px">
+          <div class="stat-card clickable" @click="$router.push('/admin/user-blacklist')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+              <el-icon :size="22"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.user_blacklist_total }}</div>
+              <div class="stat-label">用户黑名单总数</div>
+            </div>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.system_blacklist_total }}</div>
-            <div class="stat-label">系统黑名单总数</div>
+          <div class="stat-card clickable" @click="$router.push('/admin/user-blacklist?risk_level=HIGH')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ff6b6b,#ee5a52)">
+              <el-icon :size="22"><CircleClose /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.user_blacklist_high }}</div>
+              <div class="stat-label">高风险</div>
+            </div>
+          </div>
+          <div class="stat-card clickable" @click="$router.push('/admin/user-blacklist?risk_level=MEDIUM')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ffa940,#fa8c16)">
+              <el-icon :size="22"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.user_blacklist_medium }}</div>
+              <div class="stat-label">中风险</div>
+            </div>
+          </div>
+          <div class="stat-card clickable" @click="$router.push('/admin/user-blacklist?risk_level=LOW')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">
+              <el-icon :size="22"><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.user_blacklist_low }}</div>
+              <div class="stat-label">低风险</div>
+            </div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg,#f093fb,#f5576c)">
-            <el-icon :size="22"><Document /></el-icon>
+
+        <!-- 系统黑名单统计 -->
+        <div class="section-title-bar">系统黑名单</div>
+        <div class="stats-grid" style="margin-bottom:24px">
+          <div class="stat-card clickable" @click="$router.push('/admin/system-blacklist')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">
+              <el-icon :size="22"><DataAnalysis /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.system_blacklist_total }}</div>
+              <div class="stat-label">系统黑名单总数</div>
+            </div>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.pending_push_requests }}</div>
-            <div class="stat-label">待审核申请</div>
+          <div class="stat-card clickable" @click="$router.push('/admin/system-blacklist?risk_level=HIGH')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ff6b6b,#ee5a52)">
+              <el-icon :size="22"><CircleClose /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.system_blacklist_high }}</div>
+              <div class="stat-label">高风险</div>
+            </div>
+          </div>
+          <div class="stat-card clickable" @click="$router.push('/admin/system-blacklist?risk_level=MEDIUM')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ffa940,#fa8c16)">
+              <el-icon :size="22"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.system_blacklist_medium }}</div>
+              <div class="stat-label">中风险</div>
+            </div>
+          </div>
+          <div class="stat-card clickable" @click="$router.push('/admin/system-blacklist?risk_level=LOW')">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">
+              <el-icon :size="22"><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.system_blacklist_low }}</div>
+              <div class="stat-label">低风险</div>
+            </div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg,#ff6b6b,#ee5a52)">
-            <el-icon :size="22"><CircleClose /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.system_blacklist_high }}</div>
-            <div class="stat-label">高风险</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
-            <el-icon :size="22"><User /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.system_blacklist_medium }}</div>
-            <div class="stat-label">中风险</div>
+
+        <!-- 待审核 -->
+        <div class="stats-grid" style="grid-template-columns:1fr;margin-bottom:24px">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)">
+              <el-icon :size="22"><Document /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.pending_push_requests }}</div>
+              <div class="stat-label">待审核推送申请</div>
+            </div>
           </div>
         </div>
       </div>
@@ -73,13 +131,16 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Warning, Document, CircleClose, User } from '@element-plus/icons-vue'
+import { Warning, Document, CircleClose, CircleCheck, DataAnalysis, User } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const loading = ref(false)
 const stats = ref({
   system_blacklist_total: 0, system_blacklist_high: 0,
-  system_blacklist_medium: 0, system_blacklist_low: 0, pending_push_requests: 0
+  system_blacklist_medium: 0, system_blacklist_low: 0,
+  user_blacklist_total: 0, user_blacklist_high: 0,
+  user_blacklist_medium: 0, user_blacklist_low: 0,
+  pending_push_requests: 0
 })
 
 const api = () => {
@@ -131,4 +192,22 @@ onMounted(async () => {
 }
 .nav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 .nav-label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+
+.section-title-bar {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0 4px 8px;
+  margin-bottom: 8px;
+}
+
+.stat-card.clickable {
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
 </style>

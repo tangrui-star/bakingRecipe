@@ -28,9 +28,14 @@
 
         <!-- 历史文件列表（从数据库读取） -->
         <div v-if="historyList.length > 0" class="file-list">
-          <div class="file-list-title">历史检查记录</div>
+          <div class="file-list-header">
+            <div class="file-list-title">历史检查记录</div>
+            <van-button size="mini" plain @click="toggleHistory">
+              {{ historyExpanded ? '收起' : `展开全部(${historyTotal})` }}
+            </van-button>
+          </div>
           <div
-            v-for="item in historyList"
+            v-for="item in displayedHistory"
             :key="item.id"
             class="file-item"
             :class="{ active: activeId === item.id }"
@@ -50,6 +55,9 @@
               </div>
             </div>
             <van-icon name="arrow" class="arrow-icon" />
+          </div>
+          <div v-if="!historyExpanded && historyTotal > 3" class="show-more" @click="toggleHistory">
+            还有 {{ historyTotal - 3 }} 条，点击展开
           </div>
         </div>
         <div v-else-if="!historyLoading" class="file-list-empty">
@@ -144,7 +152,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 
@@ -155,7 +163,20 @@ const checking = ref(false)
 const screeningResult = ref(null)
 const historyList = ref([])
 const historyLoading = ref(false)
+const historyTotal = ref(0)
+const historyExpanded = ref(false)
 const activeId = ref(null)
+
+const displayedHistory = computed(() =>
+  historyExpanded.value ? historyList.value : historyList.value.slice(0, 3)
+)
+
+const toggleHistory = async () => {
+  if (!historyExpanded.value && historyList.value.length < historyTotal.value) {
+    await loadHistory(true)
+  }
+  historyExpanded.value = !historyExpanded.value
+}
 
 const getShopId = () => {
   const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
@@ -165,16 +186,18 @@ const getShopId = () => {
 const getToken = () => localStorage.getItem('access_token')
 
 // 加载历史列表（从数据库）
-const loadHistory = async () => {
+const loadHistory = async (loadAll = false) => {
   historyLoading.value = true
   try {
     const shopId = getShopId()
-    const res = await fetch(`/api/screening/history?shop_id=${shopId}&page=1&page_size=50`, {
+    const pageSize = loadAll ? 100 : 50
+    const res = await fetch(`/api/screening/history?shop_id=${shopId}&page=1&page_size=${pageSize}`, {
       headers: { 'Authorization': `Bearer ${getToken()}` }
     })
     if (!res.ok) throw new Error()
     const data = await res.json()
     historyList.value = data.items || []
+    historyTotal.value = data.total || 0
   } catch {
     // 静默失败，不影响上传功能
   } finally {
@@ -300,10 +323,24 @@ onMounted(() => {
   padding-top: 12px;
 }
 
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .file-list-title {
   font-size: 13px;
   color: #969799;
-  margin-bottom: 8px;
+}
+
+.show-more {
+  text-align: center;
+  font-size: 13px;
+  color: #1989fa;
+  padding: 8px 0 2px;
+  cursor: pointer;
 }
 
 .file-list-empty {

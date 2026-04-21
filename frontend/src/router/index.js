@@ -163,6 +163,12 @@ const routes = [
     name: 'UserManagement',
     component: () => import('@/views/admin/UserManagement.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: '用户管理' }
+  },
+  {
+    path: '/admin/user-blacklist',
+    name: 'AdminUserBlacklist',
+    component: () => import('@/views/admin/AdminUserBlacklist.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '全平台用户黑名单' }
   }
 ]
 

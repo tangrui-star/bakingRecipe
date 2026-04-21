@@ -49,25 +49,41 @@ async def get_admin_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """返回系统黑名单总数、各风险等级数量、待审核 Push_Request 数量"""
-    rows = (
+    """返回系统黑名单、用户黑名单各风险等级数量、待审核 Push_Request 数量"""
+    # 系统黑名单统计
+    sys_rows = (
         db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id))
         .filter(Blacklist.blacklist_type == BlacklistType.SYSTEM)
         .group_by(Blacklist.risk_level)
         .all()
     )
-    counts = {r[0].value if hasattr(r[0], 'value') else r[0]: r[1] for r in rows}
-    total_system = sum(counts.values())
+    sys_counts = {r[0].value if hasattr(r[0], 'value') else r[0]: r[1] for r in sys_rows}
+
+    # 用户黑名单统计（所有用户）
+    user_rows = (
+        db.query(Blacklist.risk_level, sqlfunc.count(Blacklist.id))
+        .filter(Blacklist.blacklist_type == BlacklistType.USER)
+        .group_by(Blacklist.risk_level)
+        .all()
+    )
+    user_counts = {r[0].value if hasattr(r[0], 'value') else r[0]: r[1] for r in user_rows}
 
     pending_count = db.query(PushRequest).filter(
         PushRequest.status == PushRequestStatus.PENDING
     ).count()
 
     return {
-        "system_blacklist_total": total_system,
-        "system_blacklist_high": counts.get("HIGH", 0),
-        "system_blacklist_medium": counts.get("MEDIUM", 0),
-        "system_blacklist_low": counts.get("LOW", 0),
+        # 系统黑名单
+        "system_blacklist_total": sum(sys_counts.values()),
+        "system_blacklist_high": sys_counts.get("HIGH", 0),
+        "system_blacklist_medium": sys_counts.get("MEDIUM", 0),
+        "system_blacklist_low": sys_counts.get("LOW", 0),
+        # 用户黑名单（全平台）
+        "user_blacklist_total": sum(user_counts.values()),
+        "user_blacklist_high": user_counts.get("HIGH", 0),
+        "user_blacklist_medium": user_counts.get("MEDIUM", 0),
+        "user_blacklist_low": user_counts.get("LOW", 0),
+        # 待审核
         "pending_push_requests": pending_count,
     }
 
